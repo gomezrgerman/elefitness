@@ -65,11 +65,17 @@ export const pagosSeed: Pago[] = [
   { id: "p-maria", clienteId: "c-maria", planId: "plan-mensual", tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 45, fechaPago: "2026-07-01", ultimoCobro: "2026-07-01", proximoCobro: "2026-08-01", registradoPor: "u-elena" },
   { id: "p-laura", clienteId: "c-laura", planId: "plan-bono10", tipo: "bono", metodo: "efectivo", estado: "al_dia", importe: 80, fechaPago: "2026-04-02", ultimoCobro: "2026-04-02", proximoCobro: null, registradoPor: "u-elena" },
   { id: "p-sara", clienteId: "c-sara", planId: "plan-mensual", tipo: "mensual", metodo: "stripe", estado: "moroso", importe: 45, fechaPago: "2026-06-01", ultimoCobro: "2026-06-01", proximoCobro: "2026-07-01", registradoPor: "u-elena" },
+  { id: "p-ana", clienteId: "c-ana", planId: "plan-mensual", tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 45, fechaPago: "2026-07-01", ultimoCobro: "2026-07-01", proximoCobro: "2026-08-01", registradoPor: "u-elena" },
+  { id: "p-beatriz", clienteId: "c-beatriz", planId: "plan-mensual", tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 45, fechaPago: "2026-07-01", ultimoCobro: "2026-07-01", proximoCobro: "2026-08-01", registradoPor: "u-elena" },
+  { id: "p-carla", clienteId: "c-carla", planId: "plan-mensual", tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 45, fechaPago: "2026-07-01", ultimoCobro: "2026-07-01", proximoCobro: "2026-08-01", registradoPor: "u-elena" },
+  { id: "p-diana", clienteId: "c-diana", planId: "plan-mensual", tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 45, fechaPago: "2026-07-01", ultimoCobro: "2026-07-01", proximoCobro: "2026-08-01", registradoPor: "u-elena" },
+  { id: "p-eva", clienteId: "c-eva", planId: "plan-mensual", tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 45, fechaPago: "2026-07-01", ultimoCobro: "2026-07-01", proximoCobro: "2026-08-01", registradoPor: "u-elena" },
 ];
 
-// Laura ya gasto 1 credito en una clase confirmada anterior (no
-// modelada aqui por brevedad); su reserva del miercoles esta en lista
-// de espera porque la clase ya estaba llena cuando la pidio.
+// Laura no ha consumido ningun credito todavia: su unica reserva
+// (clase-miercoles) esta en lista_espera, y solo las reservas
+// confirmadas consumen credito de bono (ver reservarClase/cancelarReserva
+// en lib/mock-store.tsx).
 export const bonosClienteSeed: BonoCliente[] = [
-  { id: "b-laura", clienteId: "c-laura", planId: "plan-bono10", creditosTotales: 10, creditosUsados: 1, fechaCompra: "2026-04-02", activo: true },
+  { id: "b-laura", clienteId: "c-laura", planId: "plan-bono10", creditosTotales: 10, creditosUsados: 0, fechaCompra: "2026-04-02", activo: true },
 ];

@@ -94,7 +94,7 @@ para leer/escribir contra Postgres en vez del Context en memoria.
 | Decisión | Elegido | Alternativas descartadas |
 |---|---|---|
 | Origen de datos | Ficticio (mismo set curado que el demo) | Migrar datos reales de Harbiz (bloqueado: sin acceso, y Germán confirmó que este trabajo es solo ficticio) |
-| Dónde vive la lógica de aforo/lista de espera/bono | Funciones SQL (`reservar_clase`, `cancelar_reserva`) ejecutadas atómicamente en Postgres | Lógica en TypeScript en el Server Action (descartado: el cliente de Supabase no da transacciones multi-tabla desde fuera de una función SQL, y decidir el aforo en el servidor de aplicación sin bloqueo abre condición de carrera) |
+| Dónde vive la lógica de aforo/lista de espera/bono | Funciones SQL (`reservar_clase`, `cancelar_reserva`), `SECURITY DEFINER` con comprobación explícita de propiedad dentro de la función | TypeScript en el Server Action (descartado: sin transacciones multi-tabla fuera de una función SQL, condición de carrera); `SECURITY INVOKER` (descartado: cancelar una reserva promueve la de *otra* clienta en lista de espera, y reservar necesita contar reservas de toda la clase — ninguna de las dos cabe en los permisos propios de una clienta bajo RLS, así que la función necesita privilegio elevado y validar `auth.uid()` a mano) |
 | Login para la demo | Formulario real + panel "Acceso rápido (solo demo)" con las 5 cuentas semilla | Solo formulario real sin atajos (descartado: Germán quiere cambiar de rol rápido en vivo); seguir con el selector de click del demo anterior (descartado: ya no habría auth real que enseñar) |
 | Pagos | Registro manual (campo `metodo`/`registrado_por`), sin checkout | Integrar Stripe checkout ya (descartado: fuera de plazo para el lunes, y es su propio sprint con sus propias preguntas abiertas del brief) |
 | Testing | Tests de integración solo en lo crítico (RPCs de reserva + RLS), resto verificado a mano en navegador | TDD completo con 80% cobertura (descartado por plazo; acordado explícitamente con Germán) |
@@ -112,9 +112,14 @@ para leer/escribir contra Postgres en vez del Context en memoria.
 - Políticas RLS por tabla y rol (helper SQL `auth_rol()` o subquery a
   `public.users` para leer el rol de `auth.uid()`).
 - Funciones RPC `reservar_clase(p_clase_id uuid, p_cliente_id uuid)` y
-  `cancelar_reserva(p_reserva_id uuid)` — `SECURITY INVOKER` (respetan
-  RLS del que llama) para que un cliente no pueda reservar en nombre de
-  otro.
+  `cancelar_reserva(p_reserva_id uuid)` — `SECURITY DEFINER` (necesitan
+  leer/escribir filas fuera de lo que RLS permitiría al que llama: contar
+  reservas de toda la clase, o promover la reserva de *otra* clienta en
+  lista de espera). Cada función comprueba a mano al principio que
+  `auth.uid()` corresponde al dueño de `p_cliente_id`/de la reserva (o
+  que el rol es `admin`) y lanza una excepción si no, antes de tocar
+  ninguna fila — así ningún cliente puede reservar ni cancelar en nombre
+  de otro pese al privilegio elevado de la función.
 - Script de seed (Node/TS, usa `SUPABASE_SERVICE_ROLE_KEY`, se corre
   local con `npm run seed`, nunca se despliega): crea usuarios en
   `auth.users` vía Admin API + filas correspondientes en `public.users`/

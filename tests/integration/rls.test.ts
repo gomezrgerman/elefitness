@@ -29,11 +29,19 @@ describe("RLS", () => {
     const { data: usuarioIvan } = await admin.from("users").select("id").eq("email", "ivan@elefitness.com").single();
 
     const ivan = await signInAs("ivan@elefitness.com");
-    const { error } = await ivan.from("clientes").insert({
-      usuario_id: usuarioIvan!.id,
-      plan_id: planMensual!.id,
-      notas_rutina: "",
-    });
+    const { data: insertado, error } = await ivan
+      .from("clientes")
+      .insert({
+        usuario_id: usuarioIvan!.id,
+        plan_id: planMensual!.id,
+        notas_rutina: "",
+      })
+      .select();
+
+    if (insertado && insertado.length > 0) {
+      await admin.from("clientes").delete().eq("usuario_id", usuarioIvan!.id);
+    }
+
     expect(error).not.toBeNull();
   });
 

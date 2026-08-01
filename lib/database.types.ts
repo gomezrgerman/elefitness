@@ -325,7 +325,49 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      auth_rol: {
+        Args: never
+        Returns: Database["public"]["Enums"]["rol_enum"]
+      }
+      cancelar_reserva: {
+        Args: { p_reserva_id: string }
+        Returns: {
+          clase_id: string
+          cliente_id: string
+          created_at: string
+          estado: Database["public"]["Enums"]["estado_reserva_enum"]
+          id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "reservas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ocupacion_clases: {
+        Args: never
+        Returns: {
+          clase_id: string
+          confirmadas: number
+        }[]
+      }
+      reservar_clase: {
+        Args: { p_clase_id: string; p_cliente_id: string }
+        Returns: {
+          clase_id: string
+          cliente_id: string
+          created_at: string
+          estado: Database["public"]["Enums"]["estado_reserva_enum"]
+          id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "reservas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       dia_semana_enum:

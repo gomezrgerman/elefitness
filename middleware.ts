@@ -38,7 +38,11 @@ export async function middleware(request: NextRequest) {
     if (!esRutaPublica) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
-      return NextResponse.redirect(url);
+      const redirectResponse = NextResponse.redirect(url);
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value);
+      });
+      return redirectResponse;
     }
     return response;
   }
@@ -47,19 +51,36 @@ export async function middleware(request: NextRequest) {
   const rutaDelRol = perfil ? RUTAS_POR_ROL[perfil.rol] : null;
 
   if (!rutaDelRol) {
+    if (!esRutaPublica) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      const redirectResponse = NextResponse.redirect(url);
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value);
+      });
+      return redirectResponse;
+    }
     return response;
   }
 
   if (pathname === "/" || pathname === "/login") {
     const url = request.nextUrl.clone();
     url.pathname = rutaDelRol;
-    return NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
   }
 
   if (!pathname.startsWith(rutaDelRol)) {
     const url = request.nextUrl.clone();
     url.pathname = rutaDelRol;
-    return NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
   }
 
   return response;

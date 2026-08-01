@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
       url.pathname = "/login";
       const redirectResponse = NextResponse.redirect(url);
       response.cookies.getAll().forEach((cookie) => {
-        redirectResponse.cookies.set(cookie.name, cookie.value);
+        redirectResponse.cookies.set(cookie);
       });
       return redirectResponse;
     }
@@ -56,7 +56,7 @@ export async function middleware(request: NextRequest) {
       url.pathname = "/login";
       const redirectResponse = NextResponse.redirect(url);
       response.cookies.getAll().forEach((cookie) => {
-        redirectResponse.cookies.set(cookie.name, cookie.value);
+        redirectResponse.cookies.set(cookie);
       });
       return redirectResponse;
     }
@@ -68,7 +68,7 @@ export async function middleware(request: NextRequest) {
     url.pathname = rutaDelRol;
     const redirectResponse = NextResponse.redirect(url);
     response.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
+      redirectResponse.cookies.set(cookie);
     });
     return redirectResponse;
   }
@@ -78,7 +78,7 @@ export async function middleware(request: NextRequest) {
     url.pathname = rutaDelRol;
     const redirectResponse = NextResponse.redirect(url);
     response.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
+      redirectResponse.cookies.set(cookie);
     });
     return redirectResponse;
   }

@@ -1,21 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { useAppStore } from "@/lib/mock-store";
 import { planPorId, usuarioPorId } from "@/lib/selectors";
 import { BadgeEstado } from "./badge-estado";
 import { ClienteForm } from "./cliente-form";
-import type { Cliente } from "@/lib/types";
+import { bajaCliente, reactivarCliente } from "@/lib/actions/clientes";
+import type { Cliente, Usuario, Plan } from "@/lib/types";
 
-export function ListaClientes({ soloLectura = false }: { soloLectura?: boolean }) {
-  const { clientes, usuarios, planes, bajaCliente, reactivarCliente } = useAppStore();
+interface Props {
+  clientes: Cliente[];
+  usuarios: Usuario[];
+  planes: Plan[];
+  soloLectura?: boolean;
+}
+
+export function ListaClientes({ clientes, usuarios, planes, soloLectura = false }: Props) {
   const [clienteEnEdicion, setClienteEnEdicion] = useState<Cliente | null>(null);
   const [creando, setCreando] = useState(false);
+  const [pendiente, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function darDeBaja(clienteId: string) {
+    setError(null);
+    startTransition(async () => {
+      const respuesta = await bajaCliente(clienteId);
+      if (respuesta.error) setError(respuesta.error);
+    });
+  }
+
+  function reactivar(clienteId: string) {
+    setError(null);
+    startTransition(async () => {
+      const respuesta = await reactivarCliente(clienteId);
+      if (respuesta.error) setError(respuesta.error);
+    });
+  }
 
   return (
     <div className="flex flex-col gap-4">
+      {error && <p className="text-sm text-red-600">{error}</p>}
       {!soloLectura && (
         <div className="flex justify-end">
           <Button onClick={() => setCreando(true)}>+ Nueva clienta</Button>
@@ -57,11 +82,11 @@ export function ListaClientes({ soloLectura = false }: { soloLectura?: boolean }
                         Editar
                       </Button>
                       {cliente.estado === "activo" ? (
-                        <Button variant="destructive" size="sm" onClick={() => bajaCliente(cliente.id)}>
+                        <Button variant="destructive" size="sm" disabled={pendiente} onClick={() => darDeBaja(cliente.id)}>
                           Dar de baja
                         </Button>
                       ) : (
-                        <Button variant="secondary" size="sm" onClick={() => reactivarCliente(cliente.id)}>
+                        <Button variant="secondary" size="sm" disabled={pendiente} onClick={() => reactivar(cliente.id)}>
                           Reactivar
                         </Button>
                       )}
@@ -74,9 +99,15 @@ export function ListaClientes({ soloLectura = false }: { soloLectura?: boolean }
         </TableBody>
       </Table>
 
-      {creando && <ClienteForm modo="crear" onCerrar={() => setCreando(false)} />}
+      {creando && <ClienteForm modo="crear" planes={planes} onCerrar={() => setCreando(false)} />}
       {clienteEnEdicion && (
-        <ClienteForm modo="editar" cliente={clienteEnEdicion} onCerrar={() => setClienteEnEdicion(null)} />
+        <ClienteForm
+          modo="editar"
+          cliente={clienteEnEdicion}
+          usuario={usuarioPorId(usuarios, clienteEnEdicion.usuarioId)}
+          planes={planes}
+          onCerrar={() => setClienteEnEdicion(null)}
+        />
       )}
     </div>
   );

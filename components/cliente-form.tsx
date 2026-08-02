@@ -7,38 +7,42 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAppStore } from "@/lib/mock-store";
-import { usuarioPorId } from "@/lib/selectors";
 import { clienteFormSchema } from "@/lib/validaciones";
-import type { Cliente } from "@/lib/types";
+import { altaCliente, actualizarCliente } from "@/lib/actions/clientes";
+import type { Cliente, Usuario, Plan } from "@/lib/types";
 
 interface Props {
   modo: "crear" | "editar";
   cliente?: Cliente;
+  usuario?: Usuario;
+  planes: Plan[];
   onCerrar: () => void;
 }
 
-export function ClienteForm({ modo, cliente, onCerrar }: Props) {
-  const { planes, usuarios, altaCliente, actualizarCliente } = useAppStore();
-  const usuarioActual = cliente ? usuarioPorId(usuarios, cliente.usuarioId) : undefined;
-
-  const [nombre, setNombre] = useState(usuarioActual?.nombre ?? "");
-  const [email, setEmail] = useState(usuarioActual?.email ?? "");
-  const [telefono, setTelefono] = useState(usuarioActual?.telefono ?? "");
+export function ClienteForm({ modo, cliente, usuario, planes, onCerrar }: Props) {
+  const [nombre, setNombre] = useState(usuario?.nombre ?? "");
+  const [email, setEmail] = useState(usuario?.email ?? "");
+  const [telefono, setTelefono] = useState(usuario?.telefono ?? "");
   const [planId, setPlanId] = useState(cliente?.planId ?? planes[0]?.id ?? "");
   const [notasRutina, setNotasRutina] = useState(cliente?.notasRutina ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
 
-  function guardar() {
+  async function guardar() {
     const resultado = clienteFormSchema.safeParse({ nombre, email, telefono, planId, notasRutina });
     if (!resultado.success) {
       setError(resultado.error.issues[0]?.message ?? "Datos invalidos");
       return;
     }
-    if (modo === "crear") {
-      altaCliente(resultado.data);
-    } else if (cliente) {
-      actualizarCliente(cliente.id, { planId: resultado.data.planId, notasRutina: resultado.data.notasRutina });
+    setGuardando(true);
+    const respuesta =
+      modo === "crear"
+        ? await altaCliente(resultado.data)
+        : await actualizarCliente(cliente!.id, { planId: resultado.data.planId, notasRutina: resultado.data.notasRutina });
+    setGuardando(false);
+    if (respuesta.error) {
+      setError(respuesta.error);
+      return;
     }
     onCerrar();
   }
@@ -87,7 +91,9 @@ export function ClienteForm({ modo, cliente, onCerrar }: Props) {
           <Button variant="outline" onClick={onCerrar}>
             Cancelar
           </Button>
-          <Button onClick={guardar}>Guardar</Button>
+          <Button onClick={guardar} disabled={guardando}>
+            Guardar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

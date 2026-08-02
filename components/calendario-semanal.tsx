@@ -1,9 +1,7 @@
-"use client";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAppStore } from "@/lib/mock-store";
 import { ORDEN_DIAS, reservasConfirmadasDeClase, reservasListaEsperaDeClase, usuarioPorId, clientePorId } from "@/lib/selectors";
 import { BadgeEstado } from "./badge-estado";
+import type { Clase, Reserva, Cliente, Usuario } from "@/lib/types";
 
 const ETIQUETA_DIA: Record<string, string> = {
   lunes: "Lunes",
@@ -15,9 +13,14 @@ const ETIQUETA_DIA: Record<string, string> = {
   domingo: "Domingo",
 };
 
-export function CalendarioSemanal() {
-  const { clases, reservas, clientes, usuarios } = useAppStore();
+interface Props {
+  clases: Clase[];
+  reservas: Reserva[];
+  clientes: Cliente[];
+  usuarios: Usuario[];
+}
 
+export function CalendarioSemanal({ clases, reservas, clientes, usuarios }: Props) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {ORDEN_DIAS.map((dia) => {

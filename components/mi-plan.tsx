@@ -1,17 +1,19 @@
-"use client";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAppStore } from "@/lib/mock-store";
 import { planPorId, pagoDeCliente, bonoDeCliente, creditosRestantes } from "@/lib/selectors";
 import { BadgeEstado } from "./badge-estado";
+import type { Cliente, Plan, Pago, BonoCliente } from "@/lib/types";
 
-export function MiPlan({ clienteId }: { clienteId: string }) {
-  const { clientes, planes, pagos, bonosCliente } = useAppStore();
-  const cliente = clientes.find((c) => c.id === clienteId);
-  if (!cliente) return null;
+interface Props {
+  cliente: Cliente;
+  planes: Plan[];
+  pagos: Pago[];
+  bonosCliente: BonoCliente[];
+}
+
+export function MiPlan({ cliente, planes, pagos, bonosCliente }: Props) {
   const plan = planPorId(planes, cliente.planId);
-  const pago = pagoDeCliente(pagos, clienteId);
-  const bono = bonoDeCliente(bonosCliente, clienteId);
+  const pago = pagoDeCliente(pagos, cliente.id);
+  const bono = bonoDeCliente(bonosCliente, cliente.id);
 
   return (
     <Card>

@@ -74,6 +74,12 @@ para leer/escribir contra Postgres en vez del Context en memoria.
   escritura desde entrenador.
 - Deploy a Vercel con las env vars de Supabase (URL + anon key públicas;
   `service_role` solo en local, nunca en Vercel ni en el bundle cliente).
+  **Corrección post-implementación:** `altaCliente` usa `service_role` vía
+  `createAdminClient()` para crear la cuenta de login de cada clienta nueva,
+  y esa Server Action corre en el servidor de Vercel en producción — por
+  tanto `SUPABASE_SERVICE_ROLE_KEY` sí debe subirse a Vercel como variable
+  server-only (nunca `NEXT_PUBLIC_`, nunca importada desde un Client
+  Component). Ver README.md, sección "Desplegar en Vercel".
 
 ### Fuera de este trabajo (Sprint 3/4 real, más adelante)
 
@@ -196,6 +202,9 @@ rápido para la demo.
 Mismo flujo que el demo anterior (`npx vercel login` / `npx vercel
 --prod`, interactivo, lo corre Germán), añadiendo en la configuración de
 Vercel las env vars `NEXT_PUBLIC_SUPABASE_URL` y
-`NEXT_PUBLIC_SUPABASE_ANON_KEY`. `SUPABASE_SERVICE_ROLE_KEY` se queda
-solo en `.env.local` para correr el script de seed en local — no se
-sube a Vercel ni se referencia desde código que corra en el cliente.
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`. `SUPABASE_SERVICE_ROLE_KEY` se usa en
+`.env.local` para correr el script de seed en local, **y también debe
+subirse a Vercel** como variable server-only: `altaCliente` la necesita en
+producción para crear la cuenta de login de cada clienta nueva. No se
+referencia desde código que corra en el cliente (solo Server Actions vía
+`lib/supabase/admin.ts`).

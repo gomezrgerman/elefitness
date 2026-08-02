@@ -1,5 +1,5 @@
-import { RolSelector } from "@/components/rol-selector";
+import { redirect } from "next/navigation";
 
 export default function HomePage() {
-  return <RolSelector />;
+  redirect("/login");
 }

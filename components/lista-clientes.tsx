@@ -3,14 +3,20 @@
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { useAppStore } from "@/lib/mock-store";
 import { planPorId, usuarioPorId } from "@/lib/selectors";
 import { BadgeEstado } from "./badge-estado";
 import { ClienteForm } from "./cliente-form";
-import type { Cliente } from "@/lib/types";
+import { bajaCliente, reactivarCliente } from "@/lib/actions/clientes";
+import type { Cliente, Usuario, Plan } from "@/lib/types";
 
-export function ListaClientes({ soloLectura = false }: { soloLectura?: boolean }) {
-  const { clientes, usuarios, planes, bajaCliente, reactivarCliente } = useAppStore();
+interface Props {
+  clientes: Cliente[];
+  usuarios: Usuario[];
+  planes: Plan[];
+  soloLectura?: boolean;
+}
+
+export function ListaClientes({ clientes, usuarios, planes, soloLectura = false }: Props) {
   const [clienteEnEdicion, setClienteEnEdicion] = useState<Cliente | null>(null);
   const [creando, setCreando] = useState(false);
 
@@ -74,9 +80,15 @@ export function ListaClientes({ soloLectura = false }: { soloLectura?: boolean }
         </TableBody>
       </Table>
 
-      {creando && <ClienteForm modo="crear" onCerrar={() => setCreando(false)} />}
+      {creando && <ClienteForm modo="crear" planes={planes} onCerrar={() => setCreando(false)} />}
       {clienteEnEdicion && (
-        <ClienteForm modo="editar" cliente={clienteEnEdicion} onCerrar={() => setClienteEnEdicion(null)} />
+        <ClienteForm
+          modo="editar"
+          cliente={clienteEnEdicion}
+          usuario={usuarioPorId(usuarios, clienteEnEdicion.usuarioId)}
+          planes={planes}
+          onCerrar={() => setClienteEnEdicion(null)}
+        />
       )}
     </div>
   );

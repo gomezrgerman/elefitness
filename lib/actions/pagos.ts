@@ -18,11 +18,13 @@ export async function registrarPago(datos: unknown): Promise<{ error?: string }>
   const { pagoId, fechaPago, proximoCobro } = resultado.data;
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("pagos")
     .update({ estado: "al_dia", ultimo_cobro: fechaPago, proximo_cobro: proximoCobro, fecha_pago: fechaPago })
-    .eq("id", pagoId);
+    .eq("id", pagoId)
+    .select();
   if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "No autorizado" };
 
   revalidatePath("/admin/cobros");
   revalidatePath("/entrenador/cobros");

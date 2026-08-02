@@ -1,9 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clienteFormSchema } from "@/lib/validaciones";
+
+const actualizarClienteSchema = z.object({
+  planId: z.string().min(1),
+  notasRutina: z.string().max(2000),
+});
 
 export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
   const resultado = clienteFormSchema.safeParse(datos);
@@ -17,6 +23,9 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
     data: { user: admin },
   } = await supabase.auth.getUser();
   if (!admin) return { error: "No autenticado" };
+
+  const { data: perfilAdmin } = await supabase.from("users").select("rol").eq("id", admin.id).single();
+  if (perfilAdmin?.rol !== "admin") return { error: "No autorizado" };
 
   const adminClient = createAdminClient();
   const { data: nuevoAuthUser, error: errorAuth } = await adminClient.auth.admin.createUser({
@@ -51,7 +60,11 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
   }
 
   const { data: plan, error: errorPlan } = await supabase.from("planes").select("*").eq("id", planId).single();
-  if (errorPlan || !plan) return { error: errorPlan?.message ?? "No se pudo encontrar el plan" };
+  if (errorPlan || !plan) {
+    await supabase.from("clientes").delete().eq("id", cliente.id);
+    await adminClient.auth.admin.deleteUser(nuevoAuthUser.user.id);
+    return { error: errorPlan?.message ?? "No se pudo encontrar el plan" };
+  }
 
   const fechaHoy = new Date().toISOString().slice(0, 10);
   const { error: errorPago } = await supabase.from("pagos").insert({
@@ -64,7 +77,11 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
     fecha_pago: fechaHoy,
     registrado_por: admin.id,
   });
-  if (errorPago) return { error: errorPago.message };
+  if (errorPago) {
+    await supabase.from("clientes").delete().eq("id", cliente.id);
+    await adminClient.auth.admin.deleteUser(nuevoAuthUser.user.id);
+    return { error: errorPago.message };
+  }
 
   if (plan.tipo === "bono") {
     const { error: errorBono } = await supabase.from("bonos_cliente").insert({
@@ -75,7 +92,11 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
       fecha_compra: fechaHoy,
       activo: true,
     });
-    if (errorBono) return { error: errorBono.message };
+    if (errorBono) {
+      await supabase.from("clientes").delete().eq("id", cliente.id);
+      await adminClient.auth.admin.deleteUser(nuevoAuthUser.user.id);
+      return { error: errorBono.message };
+    }
   }
 
   revalidatePath("/admin/clientes");
@@ -87,8 +108,9 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
 
 export async function bajaCliente(clienteId: string): Promise<{ error?: string }> {
   const supabase = await createClient();
-  const { error } = await supabase.from("clientes").update({ estado: "baja" }).eq("id", clienteId);
+  const { data, error } = await supabase.from("clientes").update({ estado: "baja" }).eq("id", clienteId).select();
   if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "No autorizado" };
   revalidatePath("/admin/clientes");
   revalidatePath("/entrenador/clientes");
   return {};
@@ -96,8 +118,9 @@ export async function bajaCliente(clienteId: string): Promise<{ error?: string }
 
 export async function reactivarCliente(clienteId: string): Promise<{ error?: string }> {
   const supabase = await createClient();
-  const { error } = await supabase.from("clientes").update({ estado: "activo" }).eq("id", clienteId);
+  const { data, error } = await supabase.from("clientes").update({ estado: "activo" }).eq("id", clienteId).select();
   if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "No autorizado" };
   revalidatePath("/admin/clientes");
   revalidatePath("/entrenador/clientes");
   return {};
@@ -107,16 +130,23 @@ export async function actualizarCliente(
   clienteId: string,
   datos: { planId: string; notasRutina: string }
 ): Promise<{ error?: string }> {
+  const resultado = actualizarClienteSchema.safeParse(datos);
+  if (!resultado.success) {
+    return { error: resultado.error.issues[0]?.message ?? "Datos invalidos" };
+  }
+
   const supabase = await createClient();
 
   const { data: clienteActual } = await supabase.from("clientes").select("plan_id").eq("id", clienteId).single();
   const cambiaPlan = Boolean(clienteActual) && datos.planId !== clienteActual!.plan_id;
 
-  const { error } = await supabase
+  const { data: clienteActualizado, error } = await supabase
     .from("clientes")
     .update({ plan_id: datos.planId, notas_rutina: datos.notasRutina })
-    .eq("id", clienteId);
+    .eq("id", clienteId)
+    .select();
   if (error) return { error: error.message };
+  if (!clienteActualizado || clienteActualizado.length === 0) return { error: "No autorizado" };
 
   if (cambiaPlan) {
     const { data: nuevoPlan, error: errorNuevoPlan } = await supabase.from("planes").select("*").eq("id", datos.planId).single();

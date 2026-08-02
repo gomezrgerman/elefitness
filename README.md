@@ -42,5 +42,13 @@ npx vercel --prod
 ```
 
 En la configuración de Vercel, añade las env vars `NEXT_PUBLIC_SUPABASE_URL`
-y `NEXT_PUBLIC_SUPABASE_ANON_KEY`. **No** subas `SUPABASE_SERVICE_ROLE_KEY`
-a Vercel — se usa solo en local para `npm run seed`.
+y `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Añade también `SUPABASE_SERVICE_ROLE_KEY`
+como variable de entorno **server-only** (nunca con prefijo `NEXT_PUBLIC_`) —
+es **obligatoria** en producción, no solo en local: `altaCliente` (en
+`lib/actions/clientes.ts`) usa `createAdminClient()` para crear la cuenta de
+login de cada clienta nueva, y esa Server Action se ejecuta en el servidor de
+Vercel en producción, no solo en local. Sin esta variable, dar de alta una
+clienta nueva falla en producción. Sigue siendo segura porque
+`lib/supabase/admin.ts` solo se importa desde Server Actions (nunca desde un
+Client Component), así que la clave nunca llega al bundle del navegador.
+También se sigue usando en local para `npm run seed`.

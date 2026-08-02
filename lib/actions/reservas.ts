@@ -8,6 +8,7 @@ function traducirError(mensaje: string): string {
   if (mensaje.includes("reserva activa")) return "Ya tienes una reserva activa para esta clase";
   if (mensaje.includes("no encontrad")) return "No se ha encontrado la clase o la reserva";
   if (mensaje.includes("cancelada")) return "Esa reserva ya estaba cancelada";
+  if (mensaje.includes("dada de baja")) return "Esta clienta esta dada de baja";
   if (mensaje.includes("No autorizado")) return "No tienes permiso para hacer esta acción";
   return "No se pudo completar la reserva";
 }

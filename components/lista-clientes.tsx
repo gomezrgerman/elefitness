@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { planPorId, usuarioPorId } from "@/lib/selectors";
@@ -19,9 +19,28 @@ interface Props {
 export function ListaClientes({ clientes, usuarios, planes, soloLectura = false }: Props) {
   const [clienteEnEdicion, setClienteEnEdicion] = useState<Cliente | null>(null);
   const [creando, setCreando] = useState(false);
+  const [pendiente, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function darDeBaja(clienteId: string) {
+    setError(null);
+    startTransition(async () => {
+      const respuesta = await bajaCliente(clienteId);
+      if (respuesta.error) setError(respuesta.error);
+    });
+  }
+
+  function reactivar(clienteId: string) {
+    setError(null);
+    startTransition(async () => {
+      const respuesta = await reactivarCliente(clienteId);
+      if (respuesta.error) setError(respuesta.error);
+    });
+  }
 
   return (
     <div className="flex flex-col gap-4">
+      {error && <p className="text-sm text-red-600">{error}</p>}
       {!soloLectura && (
         <div className="flex justify-end">
           <Button onClick={() => setCreando(true)}>+ Nueva clienta</Button>
@@ -63,11 +82,11 @@ export function ListaClientes({ clientes, usuarios, planes, soloLectura = false 
                         Editar
                       </Button>
                       {cliente.estado === "activo" ? (
-                        <Button variant="destructive" size="sm" onClick={() => bajaCliente(cliente.id)}>
+                        <Button variant="destructive" size="sm" disabled={pendiente} onClick={() => darDeBaja(cliente.id)}>
                           Dar de baja
                         </Button>
                       ) : (
-                        <Button variant="secondary" size="sm" onClick={() => reactivarCliente(cliente.id)}>
+                        <Button variant="secondary" size="sm" disabled={pendiente} onClick={() => reactivar(cliente.id)}>
                           Reactivar
                         </Button>
                       )}

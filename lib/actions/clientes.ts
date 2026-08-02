@@ -35,39 +35,47 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
     nombre,
     telefono,
   });
-  if (errorUsers) return { error: errorUsers.message };
+  if (errorUsers) {
+    await adminClient.auth.admin.deleteUser(nuevoAuthUser.user.id);
+    return { error: errorUsers.message };
+  }
 
   const { data: cliente, error: errorCliente } = await supabase
     .from("clientes")
     .insert({ usuario_id: nuevoAuthUser.user.id, plan_id: planId, notas_rutina: notasRutina })
     .select()
     .single();
-  if (errorCliente || !cliente) return { error: errorCliente?.message ?? "No se pudo crear la clienta" };
+  if (errorCliente || !cliente) {
+    await adminClient.auth.admin.deleteUser(nuevoAuthUser.user.id);
+    return { error: errorCliente?.message ?? "No se pudo crear la clienta" };
+  }
 
-  const { data: plan } = await supabase.from("planes").select("*").eq("id", planId).single();
-  if (plan) {
-    const fechaHoy = new Date().toISOString().slice(0, 10);
-    await supabase.from("pagos").insert({
+  const { data: plan, error: errorPlan } = await supabase.from("planes").select("*").eq("id", planId).single();
+  if (errorPlan || !plan) return { error: errorPlan?.message ?? "No se pudo encontrar el plan" };
+
+  const fechaHoy = new Date().toISOString().slice(0, 10);
+  const { error: errorPago } = await supabase.from("pagos").insert({
+    cliente_id: cliente.id,
+    plan_id: plan.id,
+    tipo: plan.tipo,
+    metodo: plan.tipo === "mensual" ? "stripe" : "efectivo",
+    estado: "pendiente",
+    importe: plan.precio,
+    fecha_pago: fechaHoy,
+    registrado_por: admin.id,
+  });
+  if (errorPago) return { error: errorPago.message };
+
+  if (plan.tipo === "bono") {
+    const { error: errorBono } = await supabase.from("bonos_cliente").insert({
       cliente_id: cliente.id,
       plan_id: plan.id,
-      tipo: plan.tipo,
-      metodo: plan.tipo === "mensual" ? "stripe" : "efectivo",
-      estado: "pendiente",
-      importe: plan.precio,
-      fecha_pago: fechaHoy,
-      registrado_por: admin.id,
+      creditos_totales: plan.clases_incluidas ?? 0,
+      creditos_usados: 0,
+      fecha_compra: fechaHoy,
+      activo: true,
     });
-
-    if (plan.tipo === "bono") {
-      await supabase.from("bonos_cliente").insert({
-        cliente_id: cliente.id,
-        plan_id: plan.id,
-        creditos_totales: plan.clases_incluidas ?? 0,
-        creditos_usados: 0,
-        fecha_compra: fechaHoy,
-        activo: true,
-      });
-    }
+    if (errorBono) return { error: errorBono.message };
   }
 
   revalidatePath("/admin/clientes");
@@ -111,40 +119,43 @@ export async function actualizarCliente(
   if (error) return { error: error.message };
 
   if (cambiaPlan) {
-    const { data: nuevoPlan } = await supabase.from("planes").select("*").eq("id", datos.planId).single();
-    if (nuevoPlan) {
-      const { data: pagoExistente } = await supabase
+    const { data: nuevoPlan, error: errorNuevoPlan } = await supabase.from("planes").select("*").eq("id", datos.planId).single();
+    if (errorNuevoPlan || !nuevoPlan) return { error: errorNuevoPlan?.message ?? "No se pudo encontrar el nuevo plan" };
+
+    const { data: pagoExistente } = await supabase
+      .from("pagos")
+      .select("id")
+      .eq("cliente_id", clienteId)
+      .limit(1)
+      .maybeSingle();
+    if (pagoExistente) {
+      const { error: errorActualizarPago } = await supabase
         .from("pagos")
-        .select("id")
-        .eq("cliente_id", clienteId)
-        .limit(1)
-        .maybeSingle();
-      if (pagoExistente) {
-        await supabase
-          .from("pagos")
-          .update({ plan_id: nuevoPlan.id, tipo: nuevoPlan.tipo, importe: nuevoPlan.precio })
-          .eq("id", pagoExistente.id);
-      }
+        .update({ plan_id: nuevoPlan.id, tipo: nuevoPlan.tipo, importe: nuevoPlan.precio })
+        .eq("id", pagoExistente.id);
+      if (errorActualizarPago) return { error: errorActualizarPago.message };
+    }
 
-      const { data: bonoActivo } = await supabase
-        .from("bonos_cliente")
-        .select("id")
-        .eq("cliente_id", clienteId)
-        .eq("activo", true)
-        .maybeSingle();
+    const { data: bonoActivo } = await supabase
+      .from("bonos_cliente")
+      .select("id")
+      .eq("cliente_id", clienteId)
+      .eq("activo", true)
+      .maybeSingle();
 
-      if (nuevoPlan.tipo === "bono" && !bonoActivo) {
-        await supabase.from("bonos_cliente").insert({
-          cliente_id: clienteId,
-          plan_id: nuevoPlan.id,
-          creditos_totales: nuevoPlan.clases_incluidas ?? 0,
-          creditos_usados: 0,
-          fecha_compra: new Date().toISOString().slice(0, 10),
-          activo: true,
-        });
-      } else if (nuevoPlan.tipo === "mensual" && bonoActivo) {
-        await supabase.from("bonos_cliente").update({ activo: false }).eq("id", bonoActivo.id);
-      }
+    if (nuevoPlan.tipo === "bono" && !bonoActivo) {
+      const { error: errorInsertBono } = await supabase.from("bonos_cliente").insert({
+        cliente_id: clienteId,
+        plan_id: nuevoPlan.id,
+        creditos_totales: nuevoPlan.clases_incluidas ?? 0,
+        creditos_usados: 0,
+        fecha_compra: new Date().toISOString().slice(0, 10),
+        activo: true,
+      });
+      if (errorInsertBono) return { error: errorInsertBono.message };
+    } else if (nuevoPlan.tipo === "mensual" && bonoActivo) {
+      const { error: errorDesactivarBono } = await supabase.from("bonos_cliente").update({ activo: false }).eq("id", bonoActivo.id);
+      if (errorDesactivarBono) return { error: errorDesactivarBono.message };
     }
   }
 

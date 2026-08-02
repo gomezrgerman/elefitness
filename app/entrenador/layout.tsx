@@ -1,24 +1,8 @@
-"use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAppStore } from "@/lib/mock-store";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CerrarSesionButton } from "@/components/cerrar-sesion-button";
 
 export default function EntrenadorLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const { sesion, cerrarSesion } = useAppStore();
-
-  useEffect(() => {
-    if (!sesion || sesion.rol !== "entrenador") {
-      router.replace("/");
-    }
-  }, [sesion, router]);
-
-  if (!sesion || sesion.rol !== "entrenador") return null;
-
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between border-b pb-4">
@@ -28,16 +12,7 @@ export default function EntrenadorLayout({ children }: { children: React.ReactNo
           <Link href="/entrenador/cobros">Cobros</Link>
           <Badge variant="outline">Solo lectura</Badge>
         </nav>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            cerrarSesion();
-            router.push("/");
-          }}
-        >
-          Cambiar de rol
-        </Button>
+        <CerrarSesionButton />
       </header>
       {children}
     </div>

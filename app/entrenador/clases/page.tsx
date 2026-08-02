@@ -1,10 +1,18 @@
 import { CalendarioSemanal } from "@/components/calendario-semanal";
+import { obtenerClases, obtenerReservas, obtenerClientes, obtenerUsuarios } from "@/lib/supabase/queries";
 
-export default function EntrenadorClasesPage() {
+export default async function EntrenadorClasesPage() {
+  const [clases, reservas, clientes, usuarios] = await Promise.all([
+    obtenerClases(),
+    obtenerReservas(),
+    obtenerClientes(),
+    obtenerUsuarios(),
+  ]);
+
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold">Clases</h1>
-      <CalendarioSemanal />
+      <CalendarioSemanal clases={clases} reservas={reservas} clientes={clientes} usuarios={usuarios} />
     </div>
   );
 }

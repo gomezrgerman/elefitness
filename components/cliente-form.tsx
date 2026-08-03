@@ -70,7 +70,9 @@ export function ClienteForm({ modo, cliente, usuario, planes, onCerrar }: Props)
             <Label htmlFor="plan">Plan</Label>
             <Select value={planId} onValueChange={(valor) => valor && setPlanId(valor)}>
               <SelectTrigger id="plan">
-                <SelectValue placeholder="Selecciona un plan" />
+                <SelectValue placeholder="Selecciona un plan">
+                  {(valor: string) => planes.find((plan) => plan.id === valor)?.nombre ?? "Selecciona un plan"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {planes.map((plan) => (

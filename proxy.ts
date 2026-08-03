@@ -7,7 +7,7 @@ const RUTAS_POR_ROL: Record<string, string> = {
   cliente: "/cliente",
 };
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

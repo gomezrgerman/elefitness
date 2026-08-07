@@ -9,6 +9,11 @@ import { clienteFormSchema } from "@/lib/validaciones";
 const actualizarClienteSchema = z.object({
   planId: z.string().min(1),
   notasRutina: z.string().max(2000),
+  diasSemanaHabituales: z.coerce
+    .number()
+    .int("Los dias por semana deben ser un numero entero")
+    .min(1, "Minimo 1 dia por semana")
+    .max(7, "Maximo 7 dias por semana"),
 });
 
 export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
@@ -16,7 +21,7 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
   if (!resultado.success) {
     return { error: resultado.error.issues[0]?.message ?? "Datos invalidos" };
   }
-  const { nombre, email, telefono, planId, notasRutina } = resultado.data;
+  const { nombre, email, telefono, planId, notasRutina, diasSemanaHabituales } = resultado.data;
 
   const supabase = await createClient();
   const {
@@ -51,7 +56,12 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
 
   const { data: cliente, error: errorCliente } = await supabase
     .from("clientes")
-    .insert({ usuario_id: nuevoAuthUser.user.id, plan_id: planId, notas_rutina: notasRutina })
+    .insert({
+      usuario_id: nuevoAuthUser.user.id,
+      plan_id: planId,
+      notas_rutina: notasRutina,
+      dias_semana_habituales: diasSemanaHabituales,
+    })
     .select()
     .single();
   if (errorCliente || !cliente) {
@@ -127,7 +137,7 @@ export async function reactivarCliente(clienteId: string): Promise<{ error?: str
 
 export async function actualizarCliente(
   clienteId: string,
-  datos: { planId: string; notasRutina: string }
+  datos: { planId: string; notasRutina: string; diasSemanaHabituales: number }
 ): Promise<{ error?: string }> {
   const resultado = actualizarClienteSchema.safeParse(datos);
   if (!resultado.success) {
@@ -141,7 +151,11 @@ export async function actualizarCliente(
 
   const { data: clienteActualizado, error } = await supabase
     .from("clientes")
-    .update({ plan_id: datos.planId, notas_rutina: datos.notasRutina })
+    .update({
+      plan_id: resultado.data.planId,
+      notas_rutina: resultado.data.notasRutina,
+      dias_semana_habituales: resultado.data.diasSemanaHabituales,
+    })
     .eq("id", clienteId)
     .select();
   if (error) return { error: error.message };

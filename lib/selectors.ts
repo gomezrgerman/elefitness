@@ -27,11 +27,18 @@ export function plazasLibres(sesion: Sesion, clase: Clase, reservas: Reserva[]):
   return aforo - reservasConfirmadasDeSesion(reservas, sesion.id).length;
 }
 
+// Mismo criterio que reservar_sesion en Postgres: de los bonos vigentes se
+// elige el de caducidad mas proxima **que aun tenga creditos**, que es el que
+// la RPC va a cobrar en la siguiente reserva. Sin el filtro de creditos la
+// pantalla ensenaba "0 de 1" a una clienta que si tenia creditos en otro bono.
+// Si ninguno tiene creditos se devuelve el mas proximo a caducar igualmente,
+// para poder seguir mostrando el saldo agotado en vez de nada.
 export function bonoDeCliente(bonos: BonoCliente[], clienteId: string): BonoCliente | undefined {
   const hoy = new Date().toISOString().slice(0, 10);
-  return bonos
+  const vigentes = bonos
     .filter((b) => b.clienteId === clienteId && b.activo && (!b.fechaCaducidad || b.fechaCaducidad >= hoy))
-    .sort((a, b) => (a.fechaCaducidad ?? "9999-12-31").localeCompare(b.fechaCaducidad ?? "9999-12-31"))[0];
+    .sort((a, b) => (a.fechaCaducidad ?? "9999-12-31").localeCompare(b.fechaCaducidad ?? "9999-12-31"));
+  return vigentes.find((b) => creditosRestantes(b) > 0) ?? vigentes[0];
 }
 
 export function creditosRestantes(bono: BonoCliente): number {

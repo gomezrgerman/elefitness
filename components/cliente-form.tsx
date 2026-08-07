@@ -25,11 +25,19 @@ export function ClienteForm({ modo, cliente, usuario, planes, onCerrar }: Props)
   const [telefono, setTelefono] = useState(usuario?.telefono ?? "");
   const [planId, setPlanId] = useState(cliente?.planId ?? planes[0]?.id ?? "");
   const [notasRutina, setNotasRutina] = useState(cliente?.notasRutina ?? "");
+  const [diasSemanaHabituales, setDiasSemanaHabituales] = useState(String(cliente?.diasSemanaHabituales ?? 1));
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
 
   async function guardar() {
-    const resultado = clienteFormSchema.safeParse({ nombre, email, telefono, planId, notasRutina });
+    const resultado = clienteFormSchema.safeParse({
+      nombre,
+      email,
+      telefono,
+      planId,
+      notasRutina,
+      diasSemanaHabituales,
+    });
     if (!resultado.success) {
       setError(resultado.error.issues[0]?.message ?? "Datos invalidos");
       return;
@@ -38,7 +46,11 @@ export function ClienteForm({ modo, cliente, usuario, planes, onCerrar }: Props)
     const respuesta =
       modo === "crear"
         ? await altaCliente(resultado.data)
-        : await actualizarCliente(cliente!.id, { planId: resultado.data.planId, notasRutina: resultado.data.notasRutina });
+        : await actualizarCliente(cliente!.id, {
+            planId: resultado.data.planId,
+            notasRutina: resultado.data.notasRutina,
+            diasSemanaHabituales: resultado.data.diasSemanaHabituales,
+          });
     setGuardando(false);
     if (respuesta.error) {
       setError(respuesta.error);
@@ -82,6 +94,17 @@ export function ClienteForm({ modo, cliente, usuario, planes, onCerrar }: Props)
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label htmlFor="dias-semana">Dias por semana que entrena</Label>
+            <Input
+              id="dias-semana"
+              type="number"
+              min={1}
+              max={7}
+              value={diasSemanaHabituales}
+              onChange={(e) => setDiasSemanaHabituales(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="notas">Notas de rutina</Label>

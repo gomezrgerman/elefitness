@@ -84,13 +84,12 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
   }
 
   if (plan.tipo === "bono") {
-    const { error: errorBono } = await supabase.from("bonos_cliente").insert({
-      cliente_id: cliente.id,
-      plan_id: plan.id,
-      creditos_totales: plan.clases_incluidas ?? 0,
-      creditos_usados: 0,
-      fecha_compra: fechaHoy,
-      activo: true,
+    const { error: errorBono } = await supabase.rpc("crear_bono", {
+      p_cliente_id: cliente.id,
+      p_plan_id: plan.id,
+      p_creditos_totales: plan.clases_incluidas ?? 0,
+      p_fecha_compra: fechaHoy,
+      p_tipo: "normal",
     });
     if (errorBono) {
       await supabase.from("clientes").delete().eq("id", cliente.id);
@@ -174,13 +173,12 @@ export async function actualizarCliente(
       .maybeSingle();
 
     if (nuevoPlan.tipo === "bono" && !bonoActivo) {
-      const { error: errorInsertBono } = await supabase.from("bonos_cliente").insert({
-        cliente_id: clienteId,
-        plan_id: nuevoPlan.id,
-        creditos_totales: nuevoPlan.clases_incluidas ?? 0,
-        creditos_usados: 0,
-        fecha_compra: new Date().toISOString().slice(0, 10),
-        activo: true,
+      const { error: errorInsertBono } = await supabase.rpc("crear_bono", {
+        p_cliente_id: clienteId,
+        p_plan_id: nuevoPlan.id,
+        p_creditos_totales: nuevoPlan.clases_incluidas ?? 0,
+        p_fecha_compra: new Date().toISOString().slice(0, 10),
+        p_tipo: "normal",
       });
       if (errorInsertBono) return { error: errorInsertBono.message };
     } else if (nuevoPlan.tipo === "mensual" && bonoActivo) {

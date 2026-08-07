@@ -24,9 +24,11 @@ describe("copiar_semana RPC", () => {
   let fechaSegundoDia: string;
   let fechaDestino: string;
   let mariaClienteId: string;
+  let lauraClienteId: string;
 
   beforeAll(async () => {
     mariaClienteId = await clienteIdPorEmail(admin, "maria@example.com");
+    lauraClienteId = await clienteIdPorEmail(admin, "laura@example.com");
 
     // Primer dia de la semana de origen, con aforo_efectivo reducido: una
     // reduccion de aforo debe sobrevivir a la copia.
@@ -49,7 +51,11 @@ describe("copiar_semana RPC", () => {
 
     fechaDestino = sumarDias(fechaOrigen, 7);
 
-    await admin.from("reservas").insert({ sesion_id: sesionLunesId, cliente_id: mariaClienteId, estado: "confirmada" });
+    // Maria es mensual y Laura de bono: la copia debe arrastrar solo a Maria.
+    await admin.from("reservas").insert([
+      { sesion_id: sesionLunesId, cliente_id: mariaClienteId, estado: "confirmada" },
+      { sesion_id: sesionLunesId, cliente_id: lauraClienteId, estado: "confirmada" },
+    ]);
   });
 
   afterAll(async () => {
@@ -84,14 +90,21 @@ describe("copiar_semana RPC", () => {
   });
 
   it("copia la semana entera (no solo un dia), con su aforo_efectivo y sus reservas confirmadas", async () => {
+    const { data: bonoAntes } = await admin
+      .from("bonos_cliente")
+      .select("creditos_usados")
+      .eq("cliente_id", lauraClienteId)
+      .eq("tipo", "normal")
+      .single();
+
     const elena = await signInAs("elena@elefitness.com");
     const { data, error } = await elena.rpc("copiar_semana", {
       p_fecha_origen: fechaOrigen,
       p_fecha_destino: fechaDestino,
     });
     expect(error).toBeNull();
-    // Solo la sesion del primer dia tiene una reserva confirmada que copiar.
-    expect(data).toBe(1);
+    // El valor de retorno son las SESIONES creadas: las dos de la semana.
+    expect(data).toBe(2);
 
     const { data: copiaPrimerDia } = await admin
       .from("sesiones")
@@ -118,6 +131,23 @@ describe("copiar_semana RPC", () => {
       .eq("cliente_id", mariaClienteId)
       .single();
     expect(reservaCopiada?.estado).toBe("confirmada");
+
+    // Laura es de bono: copiar la semana no debe reservarle plaza ni, sobre
+    // todo, gastarle un credito que ella no ha decidido gastar.
+    const { data: reservasLaura } = await admin
+      .from("reservas")
+      .select("id")
+      .eq("sesion_id", copiaPrimerDia!.id)
+      .eq("cliente_id", lauraClienteId);
+    expect(reservasLaura).toEqual([]);
+
+    const { data: bonoDespues } = await admin
+      .from("bonos_cliente")
+      .select("creditos_usados")
+      .eq("cliente_id", lauraClienteId)
+      .eq("tipo", "normal")
+      .single();
+    expect(bonoDespues?.creditos_usados).toBe(bonoAntes?.creditos_usados);
   });
 
   it("un cliente no puede copiar el horario (admin-only)", async () => {

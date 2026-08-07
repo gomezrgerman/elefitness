@@ -38,6 +38,7 @@ yarn-error.log*
 
 # supabase CLI local state
 supabase/.temp
+.supabase
 
 # typescript
 *.tsbuildinfo

@@ -3,10 +3,10 @@
 import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ORDEN_DIAS, reservaActivaDeClienteEnClase } from "@/lib/selectors";
+import { ORDEN_DIAS, reservaActivaDeClienteEnSesion } from "@/lib/selectors";
 import { BadgeEstado } from "./badge-estado";
 import { reservarClase, cancelarReserva } from "@/lib/actions/reservas";
-import type { Clase, Reserva } from "@/lib/types";
+import type { Clase, Sesion, Reserva } from "@/lib/types";
 
 const ETIQUETA_DIA: Record<string, string> = {
   lunes: "Lunes",
@@ -21,11 +21,12 @@ const ETIQUETA_DIA: Record<string, string> = {
 interface Props {
   clienteId: string;
   clases: Clase[];
+  sesiones: Sesion[];
   reservas: Reserva[];
   ocupacion: Record<string, number>;
 }
 
-export function HorarioCliente({ clienteId, clases, reservas, ocupacion }: Props) {
+export function HorarioCliente({ clienteId, clases, sesiones, reservas, ocupacion }: Props) {
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -56,31 +57,39 @@ export function HorarioCliente({ clienteId, clases, reservas, ocupacion }: Props
             <div key={dia} className="flex flex-col gap-3">
               <h3 className="font-medium">{ETIQUETA_DIA[dia]}</h3>
               {clasesDelDia.map((clase) => {
-                const libres = clase.aforoMax - (ocupacion[clase.id] ?? 0);
-                const miReserva = reservaActivaDeClienteEnClase(reservas, clienteId, clase.id);
+                const sesionesDeClase = sesiones.filter((s) => s.claseId === clase.id);
                 return (
-                  <Card key={clase.id}>
-                    <CardHeader>
-                      <CardTitle className="text-base">
-                        {clase.horaInicio} - {clase.horaFin}
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground">{Math.max(libres, 0)} plazas libres de {clase.aforoMax}</p>
-                    </CardHeader>
-                    <CardContent>
-                      {miReserva ? (
-                        <div className="flex items-center justify-between">
-                          <BadgeEstado estado={miReserva.estado} />
-                          <Button variant="outline" size="sm" disabled={pendiente} onClick={() => cancelar(miReserva.id)}>
-                            Cancelar
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button size="sm" disabled={pendiente} onClick={() => reservar(clase.id)}>
-                          {libres > 0 ? "Reservar" : "Unirse a lista de espera"}
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <div key={clase.id} className="flex flex-col gap-2">
+                    {sesionesDeClase.map((sesion) => {
+                      const aforo = sesion.aforoEfectivo ?? clase.aforoMax;
+                      const libres = aforo - (ocupacion[sesion.id] ?? 0);
+                      const miReserva = reservaActivaDeClienteEnSesion(reservas, clienteId, sesion.id);
+                      return (
+                        <Card key={sesion.id}>
+                          <CardHeader>
+                            <CardTitle className="text-base">
+                              {clase.horaInicio} - {clase.horaFin} ({sesion.fecha})
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground">{Math.max(libres, 0)} plazas libres de {aforo}</p>
+                          </CardHeader>
+                          <CardContent>
+                            {miReserva ? (
+                              <div className="flex items-center justify-between">
+                                <BadgeEstado estado={miReserva.estado} />
+                                <Button variant="outline" size="sm" disabled={pendiente} onClick={() => cancelar(miReserva.id)}>
+                                  Cancelar
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button size="sm" disabled={pendiente} onClick={() => reservar(clase.id)}>
+                                {libres > 0 ? "Reservar" : "Unirse a lista de espera"}
+                              </Button>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 );
               })}
             </div>

@@ -1,4 +1,4 @@
-import type { Usuario, Cliente, Plan, Clase, Reserva, Pago, BonoCliente, DiaSemana } from "./types";
+import type { Usuario, Cliente, Plan, Clase, Sesion, Reserva, Pago, BonoCliente, DiaSemana } from "./types";
 
 export const ORDEN_DIAS: DiaSemana[] = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
 
@@ -14,20 +14,24 @@ export function planPorId(planes: Plan[], id: string): Plan | undefined {
   return planes.find((p) => p.id === id);
 }
 
-export function reservasConfirmadasDeClase(reservas: Reserva[], claseId: string): Reserva[] {
-  return reservas.filter((r) => r.claseId === claseId && r.estado === "confirmada");
+export function reservasConfirmadasDeSesion(reservas: Reserva[], sesionId: string): Reserva[] {
+  return reservas.filter((r) => r.sesionId === sesionId && r.estado === "confirmada");
 }
 
-export function reservasListaEsperaDeClase(reservas: Reserva[], claseId: string): Reserva[] {
-  return reservas.filter((r) => r.claseId === claseId && r.estado === "lista_espera");
+export function reservasListaEsperaDeSesion(reservas: Reserva[], sesionId: string): Reserva[] {
+  return reservas.filter((r) => r.sesionId === sesionId && r.estado === "lista_espera");
 }
 
-export function plazasLibres(clase: Clase, reservas: Reserva[]): number {
-  return clase.aforoMax - reservasConfirmadasDeClase(reservas, clase.id).length;
+export function plazasLibres(sesion: Sesion, clase: Clase, reservas: Reserva[]): number {
+  const aforo = sesion.aforoEfectivo ?? clase.aforoMax;
+  return aforo - reservasConfirmadasDeSesion(reservas, sesion.id).length;
 }
 
 export function bonoDeCliente(bonos: BonoCliente[], clienteId: string): BonoCliente | undefined {
-  return bonos.find((b) => b.clienteId === clienteId && b.activo);
+  const hoy = new Date().toISOString().slice(0, 10);
+  return bonos
+    .filter((b) => b.clienteId === clienteId && b.activo && (!b.fechaCaducidad || b.fechaCaducidad >= hoy))
+    .sort((a, b) => (a.fechaCaducidad ?? "9999-12-31").localeCompare(b.fechaCaducidad ?? "9999-12-31"))[0];
 }
 
 export function creditosRestantes(bono: BonoCliente): number {
@@ -38,6 +42,6 @@ export function pagoDeCliente(pagos: Pago[], clienteId: string): Pago | undefine
   return pagos.find((p) => p.clienteId === clienteId);
 }
 
-export function reservaActivaDeClienteEnClase(reservas: Reserva[], clienteId: string, claseId: string): Reserva | undefined {
-  return reservas.find((r) => r.clienteId === clienteId && r.claseId === claseId && r.estado !== "cancelada");
+export function reservaActivaDeClienteEnSesion(reservas: Reserva[], clienteId: string, sesionId: string): Reserva | undefined {
+  return reservas.find((r) => r.clienteId === clienteId && r.sesionId === sesionId && r.estado !== "cancelada");
 }

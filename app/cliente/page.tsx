@@ -6,12 +6,11 @@ import {
   obtenerClienteDeUsuario,
   obtenerUsuarios,
   obtenerClases,
-  obtenerSesiones,
   obtenerReservas,
   obtenerPlanes,
   obtenerPagos,
   obtenerBonosCliente,
-  obtenerOcupacionSesiones,
+  obtenerOcupacionClases,
 } from "@/lib/supabase/queries";
 import { usuarioPorId } from "@/lib/selectors";
 
@@ -22,16 +21,15 @@ export default async function ClientePage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [cliente, usuarios, clases, sesiones, reservas, planes, pagos, bonosCliente, ocupacion] = await Promise.all([
+  const [cliente, usuarios, clases, reservas, planes, pagos, bonosCliente, ocupacion] = await Promise.all([
     obtenerClienteDeUsuario(user.id),
     obtenerUsuarios(),
     obtenerClases(),
-    obtenerSesiones(),
     obtenerReservas(),
     obtenerPlanes(),
     obtenerPagos(),
     obtenerBonosCliente(),
-    obtenerOcupacionSesiones(),
+    obtenerOcupacionClases(),
   ]);
 
   if (!cliente) redirect("/login");
@@ -44,7 +42,7 @@ export default async function ClientePage() {
       <MiPlan cliente={cliente} planes={planes} pagos={pagos} bonosCliente={bonosCliente} />
       <div>
         <h2 className="mb-3 text-lg font-medium">Horario semanal</h2>
-        <HorarioCliente clienteId={cliente.id} clases={clases} sesiones={sesiones} reservas={reservas} ocupacion={ocupacion} />
+        <HorarioCliente clienteId={cliente.id} clases={clases} reservas={reservas} ocupacion={ocupacion} />
       </div>
     </div>
   );

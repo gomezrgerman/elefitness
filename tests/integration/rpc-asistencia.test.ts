@@ -19,6 +19,11 @@ describe("marcar_asistencia RPC", () => {
   afterAll(async () => {
     await admin.from("reservas").update({ asistencia: "pendiente" }).eq("id", mariaReservaId);
     await admin.from("clientes").update({ deuda_creditos: 0 }).eq("id", mariaClienteId);
+    // Marcar asistencia sobre una reserva del seed deja una linea en
+    // reservas_historial que sobrevive al reset de asistencia (el trigger de
+    // 0007 no dispara al volver a 'pendiente'). Se borra para que el historial
+    // del seed no crezca una fila por ejecucion de la suite.
+    await admin.from("reservas_historial").delete().eq("reserva_id", mariaReservaId).eq("evento", "no_asistio");
   });
 
   it("un cliente no puede marcar asistencia", async () => {

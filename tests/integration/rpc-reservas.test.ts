@@ -79,6 +79,71 @@ describe("reservar_sesion / cancelar_reserva RPC", () => {
 
     const { data: bonoLaura } = await admin.from("bonos_cliente").select("creditos_usados").eq("cliente_id", lauraClienteId).eq("tipo", "normal").single();
     expect(bonoLaura?.creditos_usados).toBe(1);
+
+    // Cancelar con 24h+ de antelacion (sesionMiercolesId es varios dias en el
+    // futuro, ver siguienteFecha() en scripts/seed.ts) debe emitir un bono de
+    // recuperacion de 1 credito que caduca a los 14 dias.
+    const { data: bonoRecuperacionAna } = await admin
+      .from("bonos_cliente")
+      .select("*")
+      .eq("cliente_id", anaClienteId)
+      .eq("tipo", "recuperacion")
+      .single();
+    expect(bonoRecuperacionAna).not.toBeNull();
+    expect(bonoRecuperacionAna?.creditos_totales).toBe(1);
+    expect(bonoRecuperacionAna?.creditos_usados).toBe(0);
+    expect(bonoRecuperacionAna?.activo).toBe(true);
+    expect(bonoRecuperacionAna?.plan_id).toBeNull();
+
+    const fechaCompra = new Date(`${bonoRecuperacionAna!.fecha_compra}T00:00:00Z`);
+    const caducidadEsperada = new Date(fechaCompra);
+    caducidadEsperada.setUTCDate(caducidadEsperada.getUTCDate() + 14);
+    expect(bonoRecuperacionAna?.fecha_caducidad).toBe(caducidadEsperada.toISOString().slice(0, 10));
+  });
+
+  it("una segunda cancelacion con 24h+ de Ana en el mismo mes no crea un segundo bono de recuperacion (tope mensual 1, dias_semana_habituales=2)", async () => {
+    // Ana ya tiene un bono de recuperacion de este mes (test anterior). Su
+    // dias_semana_habituales es 2 (seed.ts), por lo que el tope mensual es 1.
+    // Creamos una segunda sesion+reserva confirmada solo para este test,
+    // bien alejada en el tiempo para no chocar con la ventana de 24h.
+    const { data: usuarioIvan } = await admin.from("users").select("id").eq("email", "ivan@elefitness.com").single();
+
+    const base = new Date();
+    base.setDate(base.getDate() + 10);
+    const fechaSesionExtra = base.toISOString().slice(0, 10);
+
+    const { data: claseExtra } = await admin
+      .from("clases")
+      .insert({ dia: "domingo", hora_inicio: "09:00", hora_fin: "10:00", aforo_max: 5, entrenador_id: usuarioIvan!.id, recurrente: true })
+      .select()
+      .single();
+
+    const { data: sesionExtra } = await admin
+      .from("sesiones")
+      .insert({ clase_id: claseExtra!.id, fecha: fechaSesionExtra })
+      .select()
+      .single();
+
+    const { data: reservaExtra } = await admin
+      .from("reservas")
+      .insert({ sesion_id: sesionExtra!.id, cliente_id: anaClienteId, estado: "confirmada" })
+      .select()
+      .single();
+
+    try {
+      const ana = await signInAs("ana@example.com");
+      const { error } = await ana.rpc("cancelar_reserva", { p_reserva_id: reservaExtra!.id });
+      expect(error).toBeNull();
+
+      const { data: bonosRecuperacionAna } = await admin
+        .from("bonos_cliente")
+        .select("id")
+        .eq("cliente_id", anaClienteId)
+        .eq("tipo", "recuperacion");
+      expect(bonosRecuperacionAna?.length).toBe(1);
+    } finally {
+      await admin.from("clases").delete().eq("id", claseExtra!.id);
+    }
   });
 
   it("cancelar la reserva promovida de Laura devuelve su credito de bono", async () => {

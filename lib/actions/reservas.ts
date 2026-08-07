@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 function traducirError(mensaje: string): string {
+  if (mensaje.includes("ya ha pasado")) return "Esta sesión ya ha pasado";
+  if (mensaje.includes("asistencia ya registrada")) return "No se puede cancelar una sesión con la asistencia ya registrada";
   if (mensaje.includes("creditos de bono")) return "No quedan créditos de bono disponibles";
   if (mensaje.includes("reserva activa")) return "Ya tienes una reserva activa para esta sesión";
   if (mensaje.includes("ventana de reserva")) return "Esta clase está fuera de tu ventana de reserva de 3 semanas";

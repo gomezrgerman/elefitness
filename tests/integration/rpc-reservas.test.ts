@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAdminClient } from "../../lib/supabase/admin";
 import { signInAs } from "./helpers";
 
-describe("reservar_clase / cancelar_reserva RPC", () => {
+describe("reservar_sesion / cancelar_reserva RPC", () => {
   const admin = createAdminClient();
-  let claseMiercolesId: string;
+  let sesionMiercolesId: string;
   let saraClienteId: string;
   let anaClienteId: string;
   let lauraClienteId: string;
@@ -13,7 +13,8 @@ describe("reservar_clase / cancelar_reserva RPC", () => {
 
   beforeAll(async () => {
     const { data: clase } = await admin.from("clases").select("id").eq("dia", "miercoles").single();
-    claseMiercolesId = clase!.id;
+    const { data: sesion } = await admin.from("sesiones").select("id").eq("clase_id", clase!.id).order("fecha", { ascending: true }).limit(1).single();
+    sesionMiercolesId = sesion!.id;
 
     async function clienteIdPorEmail(email: string): Promise<string> {
       const { data: usuario } = await admin.from("users").select("id").eq("email", email).single();
@@ -26,53 +27,45 @@ describe("reservar_clase / cancelar_reserva RPC", () => {
     lauraClienteId = await clienteIdPorEmail("laura@example.com");
 
     const { data: anaReserva } = await admin
-      .from("reservas")
-      .select("id")
-      .eq("clase_id", claseMiercolesId)
-      .eq("cliente_id", anaClienteId)
-      .single();
+      .from("reservas").select("id")
+      .eq("sesion_id", sesionMiercolesId).eq("cliente_id", anaClienteId).single();
     anaReservaId = anaReserva!.id;
 
     const { data: lauraReserva } = await admin
-      .from("reservas")
-      .select("id")
-      .eq("clase_id", claseMiercolesId)
-      .eq("cliente_id", lauraClienteId)
-      .single();
+      .from("reservas").select("id")
+      .eq("sesion_id", sesionMiercolesId).eq("cliente_id", lauraClienteId).single();
     lauraReservaId = lauraReserva!.id;
   });
 
   afterAll(async () => {
-    await admin.from("reservas").delete().eq("clase_id", claseMiercolesId).eq("cliente_id", saraClienteId);
+    await admin.from("reservas").delete().eq("sesion_id", sesionMiercolesId).eq("cliente_id", saraClienteId);
     await admin.from("reservas").update({ estado: "confirmada" }).eq("id", anaReservaId);
     await admin.from("reservas").update({ estado: "lista_espera" }).eq("id", lauraReservaId);
-    await admin.from("bonos_cliente").update({ creditos_usados: 0 }).eq("cliente_id", lauraClienteId);
+    await admin.from("bonos_cliente").update({ creditos_usados: 0 }).eq("cliente_id", lauraClienteId).eq("tipo", "normal");
+    await admin.from("bonos_cliente").delete().eq("cliente_id", lauraClienteId).eq("tipo", "recuperacion");
+    await admin.from("bonos_cliente").delete().eq("cliente_id", anaClienteId).eq("tipo", "recuperacion");
   });
 
-  it("reservar_clase en una clase con aforo lleno devuelve lista_espera", async () => {
+  it("reservar_sesion en una sesion con aforo lleno devuelve lista_espera", async () => {
     const sara = await signInAs("sara@example.com");
-    const { data, error } = await sara.rpc("reservar_clase", {
-      p_clase_id: claseMiercolesId,
-      p_cliente_id: saraClienteId,
+    const { data, error } = await sara.rpc("reservar_sesion", {
+      p_sesion_id: sesionMiercolesId, p_cliente_id: saraClienteId,
     });
     expect(error).toBeNull();
     expect(data?.estado).toBe("lista_espera");
   });
 
   it("reservar con bono sin creditos restantes falla", async () => {
-    await admin.from("bonos_cliente").update({ creditos_usados: 10 }).eq("cliente_id", lauraClienteId);
-
+    await admin.from("bonos_cliente").update({ creditos_usados: 10 }).eq("cliente_id", lauraClienteId).eq("tipo", "normal");
     const laura = await signInAs("laura@example.com");
-    const { data: nuevaClase } = await admin.from("clases").select("id").eq("dia", "lunes").single();
-
-    const { error } = await laura.rpc("reservar_clase", {
-      p_clase_id: nuevaClase!.id,
-      p_cliente_id: lauraClienteId,
+    const { data: claseLunes } = await admin.from("clases").select("id").eq("dia", "lunes").single();
+    const { data: sesionLunes } = await admin.from("sesiones").select("id").eq("clase_id", claseLunes!.id).limit(1).single();
+    const { error } = await laura.rpc("reservar_sesion", {
+      p_sesion_id: sesionLunes!.id, p_cliente_id: lauraClienteId,
     });
     expect(error).not.toBeNull();
     expect(error?.message).toMatch(/creditos de bono/);
-
-    await admin.from("bonos_cliente").update({ creditos_usados: 0 }).eq("cliente_id", lauraClienteId);
+    await admin.from("bonos_cliente").update({ creditos_usados: 0 }).eq("cliente_id", lauraClienteId).eq("tipo", "normal");
   });
 
   it("cancelar una reserva confirmada promueve la primera en lista_espera y cobra su credito de bono", async () => {
@@ -84,7 +77,7 @@ describe("reservar_clase / cancelar_reserva RPC", () => {
     const { data: lauraActualizada } = await admin.from("reservas").select("estado").eq("id", lauraReservaId).single();
     expect(lauraActualizada?.estado).toBe("confirmada");
 
-    const { data: bonoLaura } = await admin.from("bonos_cliente").select("creditos_usados").eq("cliente_id", lauraClienteId).single();
+    const { data: bonoLaura } = await admin.from("bonos_cliente").select("creditos_usados").eq("cliente_id", lauraClienteId).eq("tipo", "normal").single();
     expect(bonoLaura?.creditos_usados).toBe(1);
   });
 
@@ -93,7 +86,7 @@ describe("reservar_clase / cancelar_reserva RPC", () => {
     const { error } = await laura.rpc("cancelar_reserva", { p_reserva_id: lauraReservaId });
     expect(error).toBeNull();
 
-    const { data: bonoLaura } = await admin.from("bonos_cliente").select("creditos_usados").eq("cliente_id", lauraClienteId).single();
+    const { data: bonoLaura } = await admin.from("bonos_cliente").select("creditos_usados").eq("cliente_id", lauraClienteId).eq("tipo", "normal").single();
     expect(bonoLaura?.creditos_usados).toBe(0);
   });
 });

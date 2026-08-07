@@ -36,13 +36,31 @@ const DIA_A_NUMERO: Record<string, number> = {
   sabado: 6,
 };
 
-function siguienteFecha(dia: string, base: Date): string {
+// Primera ocurrencia de `dia` a partir de hoy + minDias. Se calcula en UTC (la
+// misma zona en la que Postgres interpreta las fechas de sesion) para que no
+// baile un dia segun la hora local a la que se corra el seed.
+//
+// minDias existe porque los tests de integracion comprueban la regla de las 24h
+// contra las sesiones del seed: con la version anterior (proxima ocurrencia del
+// dia, aunque fuera manana) el seed podia generar una sesion a menos de 24h y
+// romper esos tests segun el dia de la semana en que se ejecutara. 7 dias deja
+// la sesion holgadamente por encima del corte de 24h y por debajo de la ventana
+// de reserva de 21 dias.
+function proximaFecha(dia: string, minDias: number): string {
   const objetivo = DIA_A_NUMERO[dia];
-  const actual = base.getDay();
-  let diff = (objetivo - actual + 7) % 7;
-  if (diff === 0) diff = 7;
-  const fecha = new Date(base);
-  fecha.setDate(fecha.getDate() + diff);
+  const fecha = new Date();
+  fecha.setUTCHours(12, 0, 0, 0);
+  fecha.setUTCDate(fecha.getUTCDate() + minDias);
+  while (fecha.getUTCDay() !== objetivo) {
+    fecha.setUTCDate(fecha.getUTCDate() + 1);
+  }
+  return fecha.toISOString().slice(0, 10);
+}
+
+function fechaRelativaHoy(dias: number): string {
+  const fecha = new Date();
+  fecha.setUTCHours(12, 0, 0, 0);
+  fecha.setUTCDate(fecha.getUTCDate() + dias);
   return fecha.toISOString().slice(0, 10);
 }
 
@@ -137,17 +155,16 @@ async function main() {
   const idDiana = idsClientePorEmail.get("diana@example.com")!;
   const idEva = idsClientePorEmail.get("eva@example.com")!;
 
-  const hoy = new Date();
   const { data: sesionLunes, error: errorSesionLunes } = await admin
     .from("sesiones")
-    .insert({ clase_id: claseLunes.id, fecha: siguienteFecha("lunes", hoy) })
+    .insert({ clase_id: claseLunes.id, fecha: proximaFecha("lunes", 7) })
     .select()
     .single();
   if (errorSesionLunes || !sesionLunes) throw errorSesionLunes ?? new Error("No se pudo crear sesion-lunes");
 
   const { data: sesionMiercoles, error: errorSesionMiercoles } = await admin
     .from("sesiones")
-    .insert({ clase_id: claseMiercoles.id, fecha: siguienteFecha("miercoles", hoy) })
+    .insert({ clase_id: claseMiercoles.id, fecha: proximaFecha("miercoles", 7) })
     .select()
     .single();
   if (errorSesionMiercoles || !sesionMiercoles) throw errorSesionMiercoles ?? new Error("No se pudo crear sesion-miercoles");
@@ -176,7 +193,13 @@ async function main() {
   ]);
   if (errorPagos) throw errorPagos;
 
-  const fechaCompraBono = "2026-07-20";
+  // Relativo a hoy, no una fecha fija: con la fecha de compra hardcodeada, el
+  // bono de Laura caducaba en una fecha concreta del calendario y a partir de
+  // ese dia el filtro de caducidad de reservar_sesion lo excluia, tumbando
+  // varios tests de integracion sin que nadie hubiera tocado el codigo.
+  const fechaCompraBono = fechaRelativaHoy(-14);
+  const caducidadBono = new Date(`${fechaCompraBono}T12:00:00Z`);
+  caducidadBono.setUTCMonth(caducidadBono.getUTCMonth() + 3);
   const { error: errorBono } = await admin.from("bonos_cliente").insert({
     cliente_id: idLaura,
     plan_id: planBono.id,
@@ -184,9 +207,7 @@ async function main() {
     creditos_totales: 10,
     creditos_usados: 0,
     fecha_compra: fechaCompraBono,
-    fecha_caducidad: new Date(new Date(fechaCompraBono).setMonth(new Date(fechaCompraBono).getMonth() + 3))
-      .toISOString()
-      .slice(0, 10),
+    fecha_caducidad: caducidadBono.toISOString().slice(0, 10),
     activo: true,
   });
   if (errorBono) throw errorBono;

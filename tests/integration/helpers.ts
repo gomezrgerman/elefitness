@@ -6,10 +6,21 @@ export function anonClient() {
   return createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 }
 
+// Supabase limita los inicios de sesion por proyecto (unas decenas cada pocos
+// minutos). Con un signInWithPassword por cada uso la suite se comia el cupo y
+// fallaba con "Request rate limit reached", asi que se cachea un cliente por
+// email. vitest corre con isolate:false (ver vitest.config.ts) para que la
+// cache se comparta entre ficheros: 6 logins por ejecucion en vez de ~35.
+const clientesPorEmail = new Map<string, SupabaseClient<Database>>();
+
 export async function signInAs(email: string) {
+  const cacheado = clientesPorEmail.get(email);
+  if (cacheado) return cacheado;
+
   const client = anonClient();
   const { error } = await client.auth.signInWithPassword({ email, password: DEMO_PASSWORD });
   if (error) throw error;
+  clientesPorEmail.set(email, client);
   return client;
 }
 

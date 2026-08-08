@@ -20,27 +20,33 @@ export type Database = {
           cliente_id: string
           creditos_totales: number
           creditos_usados: number
+          fecha_caducidad: string | null
           fecha_compra: string
           id: string
-          plan_id: string
+          plan_id: string | null
+          tipo: Database["public"]["Enums"]["tipo_bono_enum"]
         }
         Insert: {
           activo?: boolean
           cliente_id: string
           creditos_totales: number
           creditos_usados?: number
+          fecha_caducidad?: string | null
           fecha_compra: string
           id?: string
-          plan_id: string
+          plan_id?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_bono_enum"]
         }
         Update: {
           activo?: boolean
           cliente_id?: string
           creditos_totales?: number
           creditos_usados?: number
+          fecha_caducidad?: string | null
           fecha_compra?: string
           id?: string
-          plan_id?: string
+          plan_id?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_bono_enum"]
         }
         Relationships: [
           {
@@ -124,6 +130,8 @@ export type Database = {
       clientes: {
         Row: {
           created_at: string
+          deuda_creditos: number
+          dias_semana_habituales: number
           estado: Database["public"]["Enums"]["estado_cliente_enum"]
           id: string
           notas_rutina: string
@@ -132,6 +140,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deuda_creditos?: number
+          dias_semana_habituales?: number
           estado?: Database["public"]["Enums"]["estado_cliente_enum"]
           id?: string
           notas_rutina?: string
@@ -140,6 +150,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deuda_creditos?: number
+          dias_semana_habituales?: number
           estado?: Database["public"]["Enums"]["estado_cliente_enum"]
           id?: string
           notas_rutina?: string
@@ -259,39 +271,112 @@ export type Database = {
       }
       reservas: {
         Row: {
-          clase_id: string
+          asistencia: Database["public"]["Enums"]["estado_asistencia_enum"]
+          cancelada_en: string | null
           cliente_id: string
           created_at: string
           estado: Database["public"]["Enums"]["estado_reserva_enum"]
           id: string
+          sesion_id: string
         }
         Insert: {
-          clase_id: string
+          asistencia?: Database["public"]["Enums"]["estado_asistencia_enum"]
+          cancelada_en?: string | null
           cliente_id: string
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_reserva_enum"]
           id?: string
+          sesion_id: string
         }
         Update: {
-          clase_id?: string
+          asistencia?: Database["public"]["Enums"]["estado_asistencia_enum"]
+          cancelada_en?: string | null
           cliente_id?: string
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_reserva_enum"]
           id?: string
+          sesion_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "reservas_clase_id_fkey"
-            columns: ["clase_id"]
-            isOneToOne: false
-            referencedRelation: "clases"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "reservas_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservas_sesion_id_fkey"
+            columns: ["sesion_id"]
+            isOneToOne: false
+            referencedRelation: "sesiones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservas_historial: {
+        Row: {
+          cliente_id: string
+          creado_en: string
+          evento: string
+          id: string
+          reserva_id: string
+          sesion_id: string
+        }
+        Insert: {
+          cliente_id: string
+          creado_en?: string
+          evento: string
+          id?: string
+          reserva_id: string
+          sesion_id: string
+        }
+        Update: {
+          cliente_id?: string
+          creado_en?: string
+          evento?: string
+          id?: string
+          reserva_id?: string
+          sesion_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservas_historial_reserva_id_fkey"
+            columns: ["reserva_id"]
+            isOneToOne: false
+            referencedRelation: "reservas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sesiones: {
+        Row: {
+          aforo_efectivo: number | null
+          clase_id: string
+          created_at: string
+          fecha: string
+          id: string
+        }
+        Insert: {
+          aforo_efectivo?: number | null
+          clase_id: string
+          created_at?: string
+          fecha: string
+          id?: string
+        }
+        Update: {
+          aforo_efectivo?: number | null
+          clase_id?: string
+          created_at?: string
+          fecha?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sesiones_clase_id_fkey"
+            columns: ["clase_id"]
+            isOneToOne: false
+            referencedRelation: "clases"
             referencedColumns: ["id"]
           },
         ]
@@ -332,11 +417,13 @@ export type Database = {
       cancelar_reserva: {
         Args: { p_reserva_id: string }
         Returns: {
-          clase_id: string
+          asistencia: Database["public"]["Enums"]["estado_asistencia_enum"]
+          cancelada_en: string | null
           cliente_id: string
           created_at: string
           estado: Database["public"]["Enums"]["estado_reserva_enum"]
           id: string
+          sesion_id: string
         }
         SetofOptions: {
           from: "*"
@@ -345,21 +432,71 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      ocupacion_clases: {
-        Args: never
-        Returns: {
-          clase_id: string
-          confirmadas: number
-        }[]
+      copiar_semana: {
+        Args: { p_fecha_destino: string; p_fecha_origen: string }
+        Returns: number
       }
-      reservar_clase: {
-        Args: { p_clase_id: string; p_cliente_id: string }
+      crear_bono: {
+        Args: {
+          p_cliente_id: string
+          p_creditos_totales: number
+          p_fecha_compra: string
+          p_plan_id: string
+          p_tipo?: Database["public"]["Enums"]["tipo_bono_enum"]
+        }
         Returns: {
-          clase_id: string
+          activo: boolean
+          cliente_id: string
+          creditos_totales: number
+          creditos_usados: number
+          fecha_caducidad: string | null
+          fecha_compra: string
+          id: string
+          plan_id: string | null
+          tipo: Database["public"]["Enums"]["tipo_bono_enum"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bonos_cliente"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      marcar_asistencia: {
+        Args: { p_asistio: boolean; p_reserva_id: string }
+        Returns: {
+          asistencia: Database["public"]["Enums"]["estado_asistencia_enum"]
+          cancelada_en: string | null
           cliente_id: string
           created_at: string
           estado: Database["public"]["Enums"]["estado_reserva_enum"]
           id: string
+          sesion_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "reservas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ocupacion_sesiones: {
+        Args: never
+        Returns: {
+          confirmadas: number
+          sesion_id: string
+        }[]
+      }
+      reservar_sesion: {
+        Args: { p_cliente_id: string; p_sesion_id: string }
+        Returns: {
+          asistencia: Database["public"]["Enums"]["estado_asistencia_enum"]
+          cancelada_en: string | null
+          cliente_id: string
+          created_at: string
+          estado: Database["public"]["Enums"]["estado_reserva_enum"]
+          id: string
+          sesion_id: string
         }
         SetofOptions: {
           from: "*"
@@ -378,11 +515,13 @@ export type Database = {
         | "viernes"
         | "sabado"
         | "domingo"
+      estado_asistencia_enum: "pendiente" | "asistio" | "no_asistio"
       estado_cliente_enum: "activo" | "baja"
       estado_pago_enum: "al_dia" | "moroso" | "pendiente"
       estado_reserva_enum: "confirmada" | "lista_espera" | "cancelada"
       metodo_pago_enum: "stripe" | "efectivo" | "transferencia"
       rol_enum: "admin" | "entrenador" | "cliente"
+      tipo_bono_enum: "normal" | "recuperacion"
       tipo_plan_enum: "mensual" | "bono"
     }
     CompositeTypes: {
@@ -520,11 +659,13 @@ export const Constants = {
         "sabado",
         "domingo",
       ],
+      estado_asistencia_enum: ["pendiente", "asistio", "no_asistio"],
       estado_cliente_enum: ["activo", "baja"],
       estado_pago_enum: ["al_dia", "moroso", "pendiente"],
       estado_reserva_enum: ["confirmada", "lista_espera", "cancelada"],
       metodo_pago_enum: ["stripe", "efectivo", "transferencia"],
       rol_enum: ["admin", "entrenador", "cliente"],
+      tipo_bono_enum: ["normal", "recuperacion"],
       tipo_plan_enum: ["mensual", "bono"],
     },
   },

@@ -26,6 +26,44 @@ const usuarios: SeedUsuario[] = [
   { email: "eva@example.com", nombre: "Eva Molina", telefono: "600555008", rol: "cliente" },
 ];
 
+const DIA_A_NUMERO: Record<string, number> = {
+  domingo: 0,
+  lunes: 1,
+  martes: 2,
+  miercoles: 3,
+  jueves: 4,
+  viernes: 5,
+  sabado: 6,
+};
+
+// Primera ocurrencia de `dia` a partir de hoy + minDias. Se calcula en UTC (la
+// misma zona en la que Postgres interpreta las fechas de sesion) para que no
+// baile un dia segun la hora local a la que se corra el seed.
+//
+// minDias existe porque los tests de integracion comprueban la regla de las 24h
+// contra las sesiones del seed: con la version anterior (proxima ocurrencia del
+// dia, aunque fuera manana) el seed podia generar una sesion a menos de 24h y
+// romper esos tests segun el dia de la semana en que se ejecutara. 7 dias deja
+// la sesion holgadamente por encima del corte de 24h y por debajo de la ventana
+// de reserva de 21 dias.
+function proximaFecha(dia: string, minDias: number): string {
+  const objetivo = DIA_A_NUMERO[dia];
+  const fecha = new Date();
+  fecha.setUTCHours(12, 0, 0, 0);
+  fecha.setUTCDate(fecha.getUTCDate() + minDias);
+  while (fecha.getUTCDay() !== objetivo) {
+    fecha.setUTCDate(fecha.getUTCDate() + 1);
+  }
+  return fecha.toISOString().slice(0, 10);
+}
+
+function fechaRelativaHoy(dias: number): string {
+  const fecha = new Date();
+  fecha.setUTCHours(12, 0, 0, 0);
+  fecha.setUTCDate(fecha.getUTCDate() + dias);
+  return fecha.toISOString().slice(0, 10);
+}
+
 async function main() {
   const { data: centroExistente } = await admin.from("centro").select("id").limit(1);
   if (centroExistente && centroExistente.length > 0) {
@@ -86,14 +124,14 @@ async function main() {
   if (errorClaseMiercoles || !claseMiercoles) throw errorClaseMiercoles ?? new Error("No se pudo crear clase-miercoles");
 
   const clientesSeed = [
-    { email: "maria@example.com", planId: planMensual.id, notas: "Full body 3x/semana, foco en tren inferior. Progresar sentadilla goblet." },
-    { email: "laura@example.com", planId: planBono.id, notas: "Circuito funcional, cuidado con el hombro derecho." },
-    { email: "sara@example.com", planId: planMensual.id, notas: "Readaptacion tras baja, sin saltos todavia." },
-    { email: "ana@example.com", planId: planMensual.id, notas: "" },
-    { email: "beatriz@example.com", planId: planMensual.id, notas: "" },
-    { email: "carla@example.com", planId: planMensual.id, notas: "" },
-    { email: "diana@example.com", planId: planMensual.id, notas: "" },
-    { email: "eva@example.com", planId: planMensual.id, notas: "" },
+    { email: "maria@example.com", planId: planMensual.id, notas: "Full body 3x/semana, foco en tren inferior. Progresar sentadilla goblet.", diasSemana: 3 },
+    { email: "laura@example.com", planId: planBono.id, notas: "Circuito funcional, cuidado con el hombro derecho.", diasSemana: 3 },
+    { email: "sara@example.com", planId: planMensual.id, notas: "Readaptacion tras baja, sin saltos todavia.", diasSemana: 1 },
+    { email: "ana@example.com", planId: planMensual.id, notas: "", diasSemana: 2 },
+    { email: "beatriz@example.com", planId: planMensual.id, notas: "", diasSemana: 2 },
+    { email: "carla@example.com", planId: planMensual.id, notas: "", diasSemana: 2 },
+    { email: "diana@example.com", planId: planMensual.id, notas: "", diasSemana: 2 },
+    { email: "eva@example.com", planId: planMensual.id, notas: "", diasSemana: 2 },
   ];
 
   const idsClientePorEmail = new Map<string, string>();
@@ -101,7 +139,7 @@ async function main() {
     const usuarioId = idsPorEmail.get(c.email)!;
     const { data: cliente, error: errorCliente } = await admin
       .from("clientes")
-      .insert({ usuario_id: usuarioId, plan_id: c.planId, notas_rutina: c.notas })
+      .insert({ usuario_id: usuarioId, plan_id: c.planId, notas_rutina: c.notas, dias_semana_habituales: c.diasSemana })
       .select()
       .single();
     if (errorCliente || !cliente) throw errorCliente ?? new Error(`No se pudo crear cliente ${c.email}`);
@@ -117,14 +155,28 @@ async function main() {
   const idDiana = idsClientePorEmail.get("diana@example.com")!;
   const idEva = idsClientePorEmail.get("eva@example.com")!;
 
+  const { data: sesionLunes, error: errorSesionLunes } = await admin
+    .from("sesiones")
+    .insert({ clase_id: claseLunes.id, fecha: proximaFecha("lunes", 7) })
+    .select()
+    .single();
+  if (errorSesionLunes || !sesionLunes) throw errorSesionLunes ?? new Error("No se pudo crear sesion-lunes");
+
+  const { data: sesionMiercoles, error: errorSesionMiercoles } = await admin
+    .from("sesiones")
+    .insert({ clase_id: claseMiercoles.id, fecha: proximaFecha("miercoles", 7) })
+    .select()
+    .single();
+  if (errorSesionMiercoles || !sesionMiercoles) throw errorSesionMiercoles ?? new Error("No se pudo crear sesion-miercoles");
+
   const { error: errorReservas } = await admin.from("reservas").insert([
-    { clase_id: claseLunes.id, cliente_id: idMaria, estado: "confirmada" },
-    { clase_id: claseMiercoles.id, cliente_id: idAna, estado: "confirmada" },
-    { clase_id: claseMiercoles.id, cliente_id: idBeatriz, estado: "confirmada" },
-    { clase_id: claseMiercoles.id, cliente_id: idCarla, estado: "confirmada" },
-    { clase_id: claseMiercoles.id, cliente_id: idDiana, estado: "confirmada" },
-    { clase_id: claseMiercoles.id, cliente_id: idEva, estado: "confirmada" },
-    { clase_id: claseMiercoles.id, cliente_id: idLaura, estado: "lista_espera" },
+    { sesion_id: sesionLunes.id, cliente_id: idMaria, estado: "confirmada" },
+    { sesion_id: sesionMiercoles.id, cliente_id: idAna, estado: "confirmada" },
+    { sesion_id: sesionMiercoles.id, cliente_id: idBeatriz, estado: "confirmada" },
+    { sesion_id: sesionMiercoles.id, cliente_id: idCarla, estado: "confirmada" },
+    { sesion_id: sesionMiercoles.id, cliente_id: idDiana, estado: "confirmada" },
+    { sesion_id: sesionMiercoles.id, cliente_id: idEva, estado: "confirmada" },
+    { sesion_id: sesionMiercoles.id, cliente_id: idLaura, estado: "lista_espera" },
   ]);
   if (errorReservas) throw errorReservas;
 
@@ -141,12 +193,21 @@ async function main() {
   ]);
   if (errorPagos) throw errorPagos;
 
+  // Relativo a hoy, no una fecha fija: con la fecha de compra hardcodeada, el
+  // bono de Laura caducaba en una fecha concreta del calendario y a partir de
+  // ese dia el filtro de caducidad de reservar_sesion lo excluia, tumbando
+  // varios tests de integracion sin que nadie hubiera tocado el codigo.
+  const fechaCompraBono = fechaRelativaHoy(-14);
+  const caducidadBono = new Date(`${fechaCompraBono}T12:00:00Z`);
+  caducidadBono.setUTCMonth(caducidadBono.getUTCMonth() + 3);
   const { error: errorBono } = await admin.from("bonos_cliente").insert({
     cliente_id: idLaura,
     plan_id: planBono.id,
+    tipo: "normal",
     creditos_totales: 10,
     creditos_usados: 0,
-    fecha_compra: "2026-04-02",
+    fecha_compra: fechaCompraBono,
+    fecha_caducidad: caducidadBono.toISOString().slice(0, 10),
     activo: true,
   });
   if (errorBono) throw errorBono;

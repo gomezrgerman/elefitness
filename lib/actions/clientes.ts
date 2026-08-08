@@ -9,6 +9,11 @@ import { clienteFormSchema } from "@/lib/validaciones";
 const actualizarClienteSchema = z.object({
   planId: z.string().min(1),
   notasRutina: z.string().max(2000),
+  diasSemanaHabituales: z.coerce
+    .number()
+    .int("Los dias por semana deben ser un numero entero")
+    .min(1, "Minimo 1 dia por semana")
+    .max(7, "Maximo 7 dias por semana"),
 });
 
 export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
@@ -16,7 +21,7 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
   if (!resultado.success) {
     return { error: resultado.error.issues[0]?.message ?? "Datos invalidos" };
   }
-  const { nombre, email, telefono, planId, notasRutina } = resultado.data;
+  const { nombre, email, telefono, planId, notasRutina, diasSemanaHabituales } = resultado.data;
 
   const supabase = await createClient();
   const {
@@ -51,7 +56,12 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
 
   const { data: cliente, error: errorCliente } = await supabase
     .from("clientes")
-    .insert({ usuario_id: nuevoAuthUser.user.id, plan_id: planId, notas_rutina: notasRutina })
+    .insert({
+      usuario_id: nuevoAuthUser.user.id,
+      plan_id: planId,
+      notas_rutina: notasRutina,
+      dias_semana_habituales: diasSemanaHabituales,
+    })
     .select()
     .single();
   if (errorCliente || !cliente) {
@@ -84,13 +94,12 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
   }
 
   if (plan.tipo === "bono") {
-    const { error: errorBono } = await supabase.from("bonos_cliente").insert({
-      cliente_id: cliente.id,
-      plan_id: plan.id,
-      creditos_totales: plan.clases_incluidas ?? 0,
-      creditos_usados: 0,
-      fecha_compra: fechaHoy,
-      activo: true,
+    const { error: errorBono } = await supabase.rpc("crear_bono", {
+      p_cliente_id: cliente.id,
+      p_plan_id: plan.id,
+      p_creditos_totales: plan.clases_incluidas ?? 0,
+      p_fecha_compra: fechaHoy,
+      p_tipo: "normal",
     });
     if (errorBono) {
       await supabase.from("clientes").delete().eq("id", cliente.id);
@@ -128,7 +137,7 @@ export async function reactivarCliente(clienteId: string): Promise<{ error?: str
 
 export async function actualizarCliente(
   clienteId: string,
-  datos: { planId: string; notasRutina: string }
+  datos: { planId: string; notasRutina: string; diasSemanaHabituales: number }
 ): Promise<{ error?: string }> {
   const resultado = actualizarClienteSchema.safeParse(datos);
   if (!resultado.success) {
@@ -142,7 +151,11 @@ export async function actualizarCliente(
 
   const { data: clienteActualizado, error } = await supabase
     .from("clientes")
-    .update({ plan_id: datos.planId, notas_rutina: datos.notasRutina })
+    .update({
+      plan_id: resultado.data.planId,
+      notas_rutina: resultado.data.notasRutina,
+      dias_semana_habituales: resultado.data.diasSemanaHabituales,
+    })
     .eq("id", clienteId)
     .select();
   if (error) return { error: error.message };
@@ -174,13 +187,12 @@ export async function actualizarCliente(
       .maybeSingle();
 
     if (nuevoPlan.tipo === "bono" && !bonoActivo) {
-      const { error: errorInsertBono } = await supabase.from("bonos_cliente").insert({
-        cliente_id: clienteId,
-        plan_id: nuevoPlan.id,
-        creditos_totales: nuevoPlan.clases_incluidas ?? 0,
-        creditos_usados: 0,
-        fecha_compra: new Date().toISOString().slice(0, 10),
-        activo: true,
+      const { error: errorInsertBono } = await supabase.rpc("crear_bono", {
+        p_cliente_id: clienteId,
+        p_plan_id: nuevoPlan.id,
+        p_creditos_totales: nuevoPlan.clases_incluidas ?? 0,
+        p_fecha_compra: new Date().toISOString().slice(0, 10),
+        p_tipo: "normal",
       });
       if (errorInsertBono) return { error: errorInsertBono.message };
     } else if (nuevoPlan.tipo === "mensual" && bonoActivo) {

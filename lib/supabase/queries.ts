@@ -1,11 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Cliente, Usuario, Plan, Clase, Reserva, Pago, BonoCliente } from "@/lib/types";
+import type { Cliente, Usuario, Plan, Clase, Sesion, Reserva, Pago, BonoCliente } from "@/lib/types";
 
 export async function obtenerClientes(): Promise<Cliente[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("clientes")
-    .select("id, usuario_id, estado, plan_id, notas_rutina, created_at");
+    .select("id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, created_at");
   if (error) throw error;
   return (data ?? []).map((c) => ({
     id: c.id,
@@ -13,6 +13,8 @@ export async function obtenerClientes(): Promise<Cliente[]> {
     estado: c.estado,
     planId: c.plan_id,
     notasRutina: c.notas_rutina,
+    diasSemanaHabituales: c.dias_semana_habituales,
+    deudaCreditos: c.deuda_creditos,
     createdAt: c.created_at,
   }));
 }
@@ -21,7 +23,7 @@ export async function obtenerClienteDeUsuario(usuarioId: string): Promise<Client
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("clientes")
-    .select("id, usuario_id, estado, plan_id, notas_rutina, created_at")
+    .select("id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, created_at")
     .eq("usuario_id", usuarioId)
     .maybeSingle();
   if (error) throw error;
@@ -32,6 +34,8 @@ export async function obtenerClienteDeUsuario(usuarioId: string): Promise<Client
     estado: data.estado,
     planId: data.plan_id,
     notasRutina: data.notas_rutina,
+    diasSemanaHabituales: data.dias_semana_habituales,
+    deudaCreditos: data.deuda_creditos,
     createdAt: data.created_at,
   };
 }
@@ -79,15 +83,34 @@ export async function obtenerClases(): Promise<Clase[]> {
   }));
 }
 
+export async function obtenerSesiones(): Promise<Sesion[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sesiones")
+    .select("id, clase_id, fecha, aforo_efectivo, created_at");
+  if (error) throw error;
+  return (data ?? []).map((s) => ({
+    id: s.id,
+    claseId: s.clase_id,
+    fecha: s.fecha,
+    aforoEfectivo: s.aforo_efectivo,
+    createdAt: s.created_at,
+  }));
+}
+
 export async function obtenerReservas(): Promise<Reserva[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("reservas").select("id, clase_id, cliente_id, estado, created_at");
+  const { data, error } = await supabase
+    .from("reservas")
+    .select("id, sesion_id, cliente_id, estado, asistencia, cancelada_en, created_at");
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id,
-    claseId: r.clase_id,
+    sesionId: r.sesion_id,
     clienteId: r.cliente_id,
     estado: r.estado,
+    asistencia: r.asistencia,
+    canceladaEn: r.cancelada_en,
     createdAt: r.created_at,
   }));
 }
@@ -117,26 +140,28 @@ export async function obtenerBonosCliente(): Promise<BonoCliente[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("bonos_cliente")
-    .select("id, cliente_id, plan_id, creditos_totales, creditos_usados, fecha_compra, activo");
+    .select("id, cliente_id, plan_id, tipo, creditos_totales, creditos_usados, fecha_compra, fecha_caducidad, activo");
   if (error) throw error;
   return (data ?? []).map((b) => ({
     id: b.id,
     clienteId: b.cliente_id,
     planId: b.plan_id,
+    tipo: b.tipo,
     creditosTotales: b.creditos_totales,
     creditosUsados: b.creditos_usados,
     fechaCompra: b.fecha_compra,
+    fechaCaducidad: b.fecha_caducidad,
     activo: b.activo,
   }));
 }
 
-export async function obtenerOcupacionClases(): Promise<Record<string, number>> {
+export async function obtenerOcupacionSesiones(): Promise<Record<string, number>> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("ocupacion_clases");
+  const { data, error } = await supabase.rpc("ocupacion_sesiones");
   if (error) throw error;
   const mapa: Record<string, number> = {};
   for (const fila of data ?? []) {
-    mapa[fila.clase_id] = fila.confirmadas;
+    mapa[fila.sesion_id] = fila.confirmadas;
   }
   return mapa;
 }

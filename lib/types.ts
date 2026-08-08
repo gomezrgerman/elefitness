@@ -3,6 +3,8 @@ export type DiaSemana = "lunes" | "martes" | "miercoles" | "jueves" | "viernes" 
 export type EstadoCliente = "activo" | "baja";
 export type TipoPlan = "mensual" | "bono";
 export type EstadoReserva = "confirmada" | "lista_espera" | "cancelada";
+export type EstadoAsistencia = "pendiente" | "asistio" | "no_asistio";
+export type TipoBono = "normal" | "recuperacion";
 export type MetodoPago = "stripe" | "efectivo" | "transferencia";
 export type EstadoPago = "al_dia" | "moroso" | "pendiente";
 
@@ -35,6 +37,8 @@ export interface Cliente {
   estado: EstadoCliente;
   planId: string;
   notasRutina: string;
+  diasSemanaHabituales: number;
+  deudaCreditos: number;
   createdAt: string;
 }
 
@@ -48,11 +52,21 @@ export interface Clase {
   recurrente: boolean;
 }
 
-export interface Reserva {
+export interface Sesion {
   id: string;
   claseId: string;
+  fecha: string;
+  aforoEfectivo: number | null;
+  createdAt: string;
+}
+
+export interface Reserva {
+  id: string;
+  sesionId: string;
   clienteId: string;
   estado: EstadoReserva;
+  asistencia: EstadoAsistencia;
+  canceladaEn: string | null;
   createdAt: string;
 }
 
@@ -73,9 +87,11 @@ export interface Pago {
 export interface BonoCliente {
   id: string;
   clienteId: string;
-  planId: string;
+  planId: string | null;
+  tipo: TipoBono;
   creditosTotales: number;
   creditosUsados: number;
   fechaCompra: string;
+  fechaCaducidad: string | null;
   activo: boolean;
 }

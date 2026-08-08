@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx scripts/seed.ts",
+    "reset:dev": "tsx scripts/reset-dev.ts",
     "test:integration": "vitest run"
   },
   "dependencies": {

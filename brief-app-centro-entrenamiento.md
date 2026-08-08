@@ -91,14 +91,68 @@ Puntos a fijar con ella antes de presupuestar:
 - **Mantenimiento mensual:** hosting (Vercel + Supabase suelen entrar en tier gratuito con poco volumen), dominio, y una cuota de soporte/mantenimiento si quieres recurrencia además del proyecto puntual.
 - **Comisión de Stripe:** la asume el centro (o se repercute al precio de la cuota), no tú.
 
-## 7. Preguntas para la reunión con la clienta
+## 7. Reunión con la clienta (2026-08-05) — decisiones confirmadas
 
-- ¿Cuántas clientas activas tiene ahora y cuántas clases a la semana da?
-- ¿Los planes son cuota mensual fija, bono de clases, o ambos?
-- ¿Necesita migrar clientas/histórico desde Harbiz o empieza de cero?
-- ¿Quién asigna la rutina individual dentro de la clase — ella sola o hay más de una entrenadora/monitor?
-- ¿Tiene dominio propio o hay que gestionarlo?
-- ¿Presupuesto y plazo que maneja para el proyecto?
+Nombre real del negocio: **Elefitness** (coincide con el nombre del proyecto/repo). Grabación: Fathom, transcrita y resumida más abajo.
+
+Grabación completa: https://fathom.video/share/Ldzy8nqYrXjJQCA5mQxMMZknvnrtc9Hm
+
+### Por qué deja Harbiz
+
+- No permite copiar horarios semanales → recreación manual cada semana.
+- No aplica la política de cancelación con 24h de antelación → clientas recuperan sesiones que no deberían, pérdida de ingresos.
+- Calendario no muestra nombres de clientes.
+- La lista de "clientes cancelados" se llena de histórico irrelevante, los datos de clases en vivo no son fiables.
+- Cero personalización para las reglas propias del negocio.
+
+### Reglas de negocio nuevas (no estaban en el modelo original)
+
+- **Copiar horario semanal**: plantilla de clases duplicable de una semana a otra, con alta/baja flexible de clientes por clase.
+- **Cancelación con 24h de antelación** → genera un **bono de recuperación** (crédito distinto del bono normal):
+  - Caduca a las **2 semanas** de emitido (evita acumulación a largo plazo).
+  - Tope mensual: **1/mes** si la clienta entrena 1-2 días/semana, **2/mes** si entrena 3+ días/semana.
+- **Asistencia real** (check-in en clase) como estado separado de "reserva confirmada" — las reglas de bono/deuda se disparan al marcar asistencia, no al reservar.
+- **Sistema de deuda**: sesión perdida sin cancelar a tiempo se descuenta automáticamente del próximo bono que compre la clienta.
+- **Aforo oculto al cliente**: solo ve "Libre" / "Completo", nunca el nº exacto de plazas (para que no elijan clases con pocos alumnos). Elena puede fijar además un **límite efectivo por debajo del aforo_max real** para un día concreto (ej. bajar plazas sin que el cliente vea que existe ese límite) — para él sigue siendo solo Libre/Completo.
+- **Lista de espera** si el grupo/clase está lleno (ya estaba en el modelo original, reafirmado en la reunión).
+- **Calendario con 3 vistas** (día / semana / mes) para los entrenadores (Elena e Iván); las clientas solo ven una **ventana de 3 semanas vista** hacia adelante para reservar.
+- **Caducidad del bono de horario rotativo**: 3 meses desde la compra (distinto de la caducidad de 2 semanas del bono de recuperación — son dos tipos de crédito con reglas propias).
+- **Historial por clase/grupo**: quién se ha apuntado, desapuntado y quién ha fallado (no ha marcado asistencia), visible desde la ficha de la clase — no solo el estado actual, el histórico de movimientos.
+- **Personalización de marca**: logo y colores de Elefitness en la app.
+- **Iván marca asistencia desde su panel** (confirmado en la propuesta comercial del 2026-08-05: "Panel de Iván: lectura + marcar asistencia") — no es de solo lectura al 100%, esta es la única excepción de escritura.
+
+### Pendiente de aclarar con Elena antes de meterlo en el prototipo
+
+- **"Panel de notificaciones"**: no quedó claro si es un panel interno para Elena/Iván (alertas de lista de espera movida, cancelaciones, pagos fallidos) o si incluye avisos al cliente. Si es lo primero, encaja en v1; si implica mensajería al cliente, se solapa con lo diferido a v2.
+- **Enlaces de atribución por entrenador** ("saber por parte de cada entrenador entra más gente, crear diferentes links para apuntarse"): esto es distinto del programa de referidos de clientes (que sí queda diferido). Suena a algo simple — un link distinto por entrenador que etiqueta de dónde vino el alta — pensado más para la landing page (Fase 2) que para el prototipo de gestión. Confirmarlo cuando se hable de la landing.
+
+### Pagos y Verifactu
+
+- Stripe se conecta a la **cuenta Stripe ya existente** de Elefitness (no una nueva) — pagos, no cuota nueva.
+- Objetivo inmediato: **exportar CSV** de pagos desde `pagos`, no depender de Harbiz para eso.
+- **Verifactu se deja aparcado por ahora** — German decide seguir adelante sin bloquear el proyecto por esto. La prioridad es sacarla de Harbiz cuanto antes; la decisión de Stripe Billing vs facturación externa se retoma más adelante si hace falta, no es bloqueante para el prototipo ni para el desarrollo del MVP. `pagos` se mantiene exportable en formato limpio por si acaso, pero no se construye ningún motor de facturación certificado (ver también nota de Verifactu en memoria).
+
+### Diferido a Fase 2 (fijado en la propuesta comercial del 2026-08-05, 2.000€ + IVA la Fase 1)
+
+Ya estaban fuera de alcance en la sección "Fuera de alcance" original y se confirma que siguen fuera de la Fase 1 — dos de ellos (etiquetas y bloqueo) habían salido en la reunión como reglas nuevas, pero la propuesta comercial los formalizó como Fase 2, no Fase 1, así que **no se construyen todavía**:
+
+- **Etiquetas de cliente** (many-to-many) para restringir acceso a clases concretas — ej. "Cliente de Iván", "Solo por la mañana".
+- **Bloqueo manual de clases o grupos completos**, para reservar hueco sin abrirlo a todos (incluye días festivos).
+- Programa de referidos con QR único y descuento automático.
+- Recompensas/fidelización por asistencia continuada.
+- Notificaciones personalizadas dentro de la app (ej. mensajes de cumpleaños).
+
+Presupuesto de Fase 2: a definir tras ver el resultado de la Fase 1, con tope de no superar su precio.
+
+### Preguntas ya resueltas
+
+- Nº de clientas / clases por semana, tipo de plan (mensual + bono, confirmado ambos), migración desde Harbiz (no se migra histórico, se exporta CSV de pagos), quién asigna rutina (Elena e Iván), presupuesto/plazo (pendiente de que yo lo presente tras el prototipo).
+
+### Próximos pasos acordados
+
+- **Germán**: crear carpeta de Drive para assets (fotos/vídeos del gimnasio), construir prototipo básico en 1-2 semanas, presentar presupuesto basado en el alcance ya cerrado.
+- **Elena e Iván**: subir assets a Drive, revisar el prototipo y dar feedback.
+- **Prioridad de construcción**: 1) app de gestión (admin + cliente) para clientas existentes, 2) landing page estática sencilla con enlace de WhatsApp para captar leads nuevos — la landing va después, no en paralelo.
 
 ## 8. Prompt inicial para Claude Code
 

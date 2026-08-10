@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAdminClient } from "../../lib/supabase/admin";
-import { borrarClases, clienteIdPorEmail, crearClaseConSesion, signInAs } from "./helpers";
+import { borrarClases, clienteIdPorEmail, crearClaseConSesion, instanteUtc, signInAs } from "./helpers";
 
 // Cobertura del trigger de la migracion 0007: cada movimiento de una reserva
 // deja una linea en reservas_historial, que es lo que alimenta el registro
@@ -89,13 +89,30 @@ describe("trigger reservas_historial", () => {
   });
 
   it("marcar asistencia escribe 'asistio' / 'no_asistio'", async () => {
+    // La sesion se creo 48h en el futuro para que las reservas anteriores
+    // pudieran hacerse (reservar_sesion rechaza el pasado). marcar_asistencia
+    // exige lo contrario: la clase ya tiene que haber empezado. Se mueve la
+    // sesion al pasado justo antes de este test, con margen de sobra (50h)
+    // para que el resultado no dependa de la hora del dia en que corra la
+    // suite. El dia de la semana de la sesion deja de coincidir con el de la
+    // clase tras este cambio, pero ninguna de las RPCs ni ninguna asercion de
+    // este test depende de eso.
+    const pasada = instanteUtc(-50);
+    await admin.from("sesiones").update({ fecha: pasada.fecha }).eq("id", sesionId);
+
     const ivan = await signInAs("ivan@elefitness.com");
 
-    const { error: errorAna } = await ivan.rpc("marcar_asistencia", { p_reserva_id: reservaAnaId, p_asistio: true });
+    const { error: errorAna } = await ivan.rpc("marcar_asistencia", {
+      p_reserva_id: reservaAnaId,
+      p_asistencia: "asistio",
+    });
     expect(errorAna).toBeNull();
     expect(await eventosDe(reservaAnaId)).toEqual(["apuntado", "asistio"]);
 
-    const { error: errorSara } = await ivan.rpc("marcar_asistencia", { p_reserva_id: reservaSaraId, p_asistio: false });
+    const { error: errorSara } = await ivan.rpc("marcar_asistencia", {
+      p_reserva_id: reservaSaraId,
+      p_asistencia: "no_asistio",
+    });
     expect(errorSara).toBeNull();
     expect(await eventosDe(reservaSaraId)).toEqual([
       "en_lista_espera",

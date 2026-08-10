@@ -222,15 +222,10 @@ describe("Reglas de cancelacion", () => {
     });
     expect(errorReserva).toBeNull();
 
-    const ivan = await signInAs("ivan@elefitness.com");
-    // p_asistio = true a proposito: 'no_asistio' incrementaria deuda_creditos y
-    // este test no va de eso.
-    const { data: marcada, error: errorAsistencia } = await ivan.rpc("marcar_asistencia", {
-      p_reserva_id: reserva!.id,
-      p_asistio: true,
-    });
-    expect(errorAsistencia).toBeNull();
-    expect(marcada?.asistencia).toBe("asistio");
+    // La asistencia solo se puede marcar sobre una clase ya empezada, y esa
+    // tampoco se puede cancelar. Se prepara el estado a mano para comprobar la
+    // guarda en aislamiento.
+    await admin.from("reservas").update({ asistencia: "asistio" }).eq("id", reserva!.id);
 
     const { error } = await maria.rpc("cancelar_reserva", { p_reserva_id: reserva!.id });
     expect(error).not.toBeNull();
@@ -238,6 +233,8 @@ describe("Reglas de cancelacion", () => {
 
     const { data: sigueViva } = await admin.from("reservas").select("estado").eq("id", reserva!.id).single();
     expect(sigueViva?.estado).toBe("confirmada");
+
+    await admin.from("reservas").update({ asistencia: "pendiente" }).eq("id", reserva!.id);
   });
 
   it("no se puede reservar una sesion que ya ha pasado", async () => {

@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -463,7 +463,10 @@ export type Database = {
         }
       }
       marcar_asistencia: {
-        Args: { p_asistio: boolean; p_reserva_id: string }
+        Args: {
+          p_asistencia: Database["public"]["Enums"]["estado_asistencia_enum"]
+          p_reserva_id: string
+        }
         Returns: {
           asistencia: Database["public"]["Enums"]["estado_asistencia_enum"]
           cancelada_en: string | null

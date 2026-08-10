@@ -233,8 +233,6 @@ describe("Reglas de cancelacion", () => {
 
     const { data: sigueViva } = await admin.from("reservas").select("estado").eq("id", reserva!.id).single();
     expect(sigueViva?.estado).toBe("confirmada");
-
-    await admin.from("reservas").update({ asistencia: "pendiente" }).eq("id", reserva!.id);
   });
 
   it("no se puede reservar una sesion que ya ha pasado", async () => {

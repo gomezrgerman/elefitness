@@ -107,3 +107,33 @@ programa el cambio de verdad.
   agotar el límite de inicios de sesión de Supabase. Funciona, pero es una palanca
   más amplia de lo necesario: un `globalSetup` que reparta los tokens sería más
   ajustado.
+
+## Salido de la revisión final del panel de mandos (2026-08-11)
+
+- **`proximoCobro` se calcula desde hoy, no desde el cobro anterior.**
+  `components/tabla-cobros.tsx` suma un mes a la fecha en que Elena pulsa el
+  botón, no a la fecha del `proximo_cobro` que ya tenía la clienta. Si Elena
+  registra un pago con unos días de retraso, la fecha de facturación se desplaza
+  hacia adelante de forma permanente, y vuelve a desplazarse cada vez que se
+  retrasa. Es previo a esta rama, pero conviene cerrarlo antes de cablear Stripe,
+  que heredará esa fecha.
+
+- **Ninguna cobertura de la rama `dias_semana_habituales < 3` ni del bono de
+  recuperación para clientas mensuales** más allá de lo ya anotado arriba: los
+  datos semilla solo tienen una clienta de bono.
+
+- **La entrada de arriba sobre el desajuste de hidratación de
+  `horario-cliente.tsx` dice "resuelto" y es un poco generosa.** Queda un
+  `new Date()` en tiempo de render dentro de un componente cliente que Next
+  también renderiza en servidor. La ventana pasó de ~2h al día a menos de un
+  segundo por sesión, así que en la práctica está resuelto — pero es el mismo
+  patrón de `ahora` como valor estático que ya está anotado para el calendario, y
+  se debería cerrar junto con él.
+
+- **`tests/integration/rpc-reservas.test.ts` tuvo un fallo puntual sin explicar**
+  (una promoción de lista de espera que no ocurrió) que dos ejecuciones
+  posteriores no reprodujeron. La explicación inicial (estado residual del seed)
+  quedó descartada al comprobar que ese estado habría hecho fallar antes otro
+  test del mismo fichero. El fichero se ha hecho autocontenido, lo que elimina la
+  causa más probable, pero la raíz sigue sin identificarse. Si reaparece, volcar
+  el estado de la sesión en el fallo antes de sacar conclusiones.

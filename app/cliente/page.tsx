@@ -17,7 +17,7 @@ import {
   obtenerOcupacionSesiones,
 } from "@/lib/supabase/queries";
 import { usuarioPorId, reservaActivaDeClienteEnSesion } from "@/lib/selectors";
-import { sumarDias, hoyEnEspana } from "@/lib/fechas";
+import { sumarDias, hoyEnEspana, instanteEnEspana } from "@/lib/fechas";
 
 export default async function ClientePage() {
   const supabase = await createClient();
@@ -53,10 +53,20 @@ export default async function ClientePage() {
     sesionesLibres[sesion.id] = (ocupacion[sesion.id] ?? 0) < aforo;
   }
 
+  // La tarjeta "Tienes clase hoy" solo debe desaparecer cuando la clase ya ha
+  // terminado (horaFin), no cuando empieza: mientras esta en curso la clienta
+  // sigue teniendo clase hoy y el rango de horas mostrado sigue siendo util.
+  // Comparar solo por fecha (sin instanteEnEspana) dejaba la tarjeta anunciando
+  // una clase de las 09:00 a las 21:00, el mismo bug que ya se corrigio en
+  // horario-cliente.tsx.
+  const ahora = new Date();
   const sesionesHoy = sesiones.filter((s) => s.fecha === hoy);
   const reservaHoy = sesionesHoy.find((s) => {
     const r = reservaActivaDeClienteEnSesion(reservas, cliente.id, s.id);
-    return r && r.estado === "confirmada";
+    if (!r || r.estado !== "confirmada") return false;
+    const clase = clases.find((c) => c.id === s.claseId);
+    if (!clase) return false;
+    return instanteEnEspana(s.fecha, clase.horaFin) > ahora;
   });
   const claseHoy = reservaHoy ? clases.find((c) => c.id === reservaHoy.claseId) : null;
 

@@ -54,7 +54,7 @@ export function MiPlan({ cliente, planes, pagos, bonosCliente }: Props) {
             <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
-                style={{ width: `${100 - porcentaje}%` }}
+                style={{ width: `${porcentaje}%` }}
               />
             </div>
             <p className="text-xs text-muted-foreground">

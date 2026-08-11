@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import gsap from "gsap";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import type { ReactNode } from "react";
 import {
   UsersIcon,

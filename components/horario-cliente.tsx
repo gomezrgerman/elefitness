@@ -3,33 +3,27 @@
 import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ORDEN_DIAS, reservaActivaDeClienteEnSesion } from "@/lib/selectors";
+import { reservaActivaDeClienteEnSesion } from "@/lib/selectors";
+import { formatearDiaLargo } from "@/lib/fechas";
 import { BadgeEstado } from "./badge-estado";
 import { reservarSesion, cancelarReserva } from "@/lib/actions/reservas";
 import type { Clase, Sesion, Reserva } from "@/lib/types";
 
-const ETIQUETA_DIA: Record<string, string> = {
-  lunes: "Lunes",
-  martes: "Martes",
-  miercoles: "Miercoles",
-  jueves: "Jueves",
-  viernes: "Viernes",
-  sabado: "Sabado",
-  domingo: "Domingo",
-};
-
 interface Props {
   clienteId: string;
+  hoy: string;
+  limite: string;
+  // Elena pidio que la clienta no vea cuantas plazas quedan, para que no elija
+  // las clases con menos gente: al navegador solo llega si hay hueco o no.
+  sesionesLibres: Record<string, boolean>;
   clases: Clase[];
   sesiones: Sesion[];
   reservas: Reserva[];
-  ocupacion: Record<string, number>;
 }
 
-export function HorarioCliente({ clienteId, clases, sesiones, reservas, ocupacion }: Props) {
+export function HorarioCliente({ clienteId, hoy, limite, sesionesLibres, clases, sesiones, reservas }: Props) {
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const hoy = new Date().toISOString().slice(0, 10);
 
   function reservar(sesionId: string) {
     setError(null);
@@ -47,53 +41,54 @@ export function HorarioCliente({ clienteId, clases, sesiones, reservas, ocupacio
     });
   }
 
+  // Solo se muestran las sesiones reservables: desde hoy hasta el limite de la
+  // ventana. Antes salian tarjetas que el sistema rechazaba al pulsarlas.
+  const visibles = sesiones
+    .filter((s) => s.fecha >= hoy && s.fecha <= limite)
+    .map((s) => ({ sesion: s, clase: clases.find((c) => c.id === s.claseId) }))
+    .filter((x): x is { sesion: Sesion; clase: Clase } => Boolean(x.clase))
+    .sort((a, b) =>
+      a.sesion.fecha === b.sesion.fecha
+        ? a.clase.horaInicio.localeCompare(b.clase.horaInicio)
+        : a.sesion.fecha.localeCompare(b.sesion.fecha)
+    );
+
+  if (visibles.length === 0) {
+    return <p className="text-sm text-muted-foreground">No hay clases disponibles ahora mismo.</p>;
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {ORDEN_DIAS.map((dia) => {
-          const clasesDelDia = clases.filter((c) => c.dia === dia);
-          if (clasesDelDia.length === 0) return null;
+        {visibles.map(({ sesion, clase }) => {
+          const hayHueco = sesionesLibres[sesion.id] ?? false;
+          const miReserva = reservaActivaDeClienteEnSesion(reservas, clienteId, sesion.id);
           return (
-            <div key={dia} className="flex flex-col gap-3">
-              <h3 className="font-medium">{ETIQUETA_DIA[dia]}</h3>
-              {clasesDelDia.map((clase) => {
-                const sesionesDeClase = sesiones
-                  .filter((s) => s.claseId === clase.id && s.fecha >= hoy)
-                  .sort((a, b) => a.fecha.localeCompare(b.fecha));
-                return sesionesDeClase.map((sesion) => {
-                  const aforo = sesion.aforoEfectivo ?? clase.aforoMax;
-                  const libres = aforo - (ocupacion[sesion.id] ?? 0);
-                  const miReserva = reservaActivaDeClienteEnSesion(reservas, clienteId, sesion.id);
-                  return (
-                    <Card key={sesion.id}>
-                      <CardHeader>
-                        <CardTitle className="text-base">
-                          {sesion.fecha} · {clase.horaInicio} - {clase.horaFin}
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          {Math.max(libres, 0)} plazas libres de {aforo}
-                        </p>
-                      </CardHeader>
-                      <CardContent>
-                        {miReserva ? (
-                          <div className="flex items-center justify-between">
-                            <BadgeEstado estado={miReserva.estado} />
-                            <Button variant="outline" size="sm" disabled={pendiente} onClick={() => cancelar(miReserva.id)}>
-                              Cancelar
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button size="sm" disabled={pendiente} onClick={() => reservar(sesion.id)}>
-                            {libres > 0 ? "Reservar" : "Unirse a lista de espera"}
-                          </Button>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                });
-              })}
-            </div>
+            <Card key={sesion.id}>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {formatearDiaLargo(sesion.fecha)}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {clase.horaInicio} - {clase.horaFin} · {hayHueco ? "Libre" : "Completo"}
+                </p>
+              </CardHeader>
+              <CardContent>
+                {miReserva ? (
+                  <div className="flex items-center justify-between">
+                    <BadgeEstado estado={miReserva.estado} />
+                    <Button variant="outline" size="sm" disabled={pendiente} onClick={() => cancelar(miReserva.id)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : (
+                  <Button size="sm" disabled={pendiente} onClick={() => reservar(sesion.id)}>
+                    {hayHueco ? "Reservar" : "Unirse a lista de espera"}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
           );
         })}
       </div>

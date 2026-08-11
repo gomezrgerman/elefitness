@@ -22,6 +22,47 @@ export function hoyEnEspana(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(new Date());
 }
 
+// `clase.horaInicio` se guarda como hora de pared de Espana (asi la escriben
+// Elena e Ivan), no UTC. Un offset fijo (+1 o +2) no vale: Espana alterna entre
+// CET y CEST segun la epoca del anyo, asi que la misma hora de pared cae en
+// instantes distintos en enero y en agosto. Para saber a que instante real
+// corresponde "10:00 en Madrid" en una fecha dada hace falta preguntarle a la
+// zona horaria, no sumar una constante.
+//
+// Se resuelve en dos pasos: primero se interpreta la hora de pared como si
+// fuera UTC (una aproximacion a menos de un dia del instante real); despues se
+// formatea esa aproximacion en Europe/Madrid para leer el offset que estaba en
+// vigor ese dia, y se resta para llegar al instante real. El offset no cambia
+// dentro del margen de horas que introduce la aproximacion salvo en el propio
+// instante del cambio de hora (de madrugada, fuera del horario de clases), que
+// queda fuera de alcance aqui.
+export function instanteEnEspana(fecha: string, hora: string): Date {
+  const [anyo, mes, dia] = fecha.split("-").map(Number);
+  const [h, m] = hora.split(":").map(Number);
+  const aproximacion = new Date(Date.UTC(anyo, mes - 1, dia, h, m, 0));
+
+  const formateador = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Madrid",
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const partes = Object.fromEntries(formateador.formatToParts(aproximacion).map((p) => [p.type, p.value]));
+  const comoUtc = Date.UTC(
+    Number(partes.year),
+    Number(partes.month) - 1,
+    Number(partes.day),
+    Number(partes.hour),
+    Number(partes.minute)
+  );
+  const offsetMinutos = (comoUtc - aproximacion.getTime()) / 60000;
+
+  return new Date(aproximacion.getTime() - offsetMinutos * 60000);
+}
+
 function aCadena(d: Date): string {
   return d.toISOString().slice(0, 10);
 }

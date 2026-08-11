@@ -13,7 +13,7 @@ import {
 } from "@/lib/selectors";
 import { marcarAsistencia } from "@/lib/actions/asistencia";
 import { cancelarReserva } from "@/lib/actions/reservas";
-import { formatearDiaLargo } from "@/lib/fechas";
+import { formatearDiaLargo, instanteEnEspana } from "@/lib/fechas";
 import type { Clase, Sesion, Reserva, Cliente, Usuario, Plan, EstadoAsistencia } from "@/lib/types";
 
 interface Props {
@@ -91,7 +91,7 @@ export function VistaDia({
         const enEspera = reservasListaEsperaDeSesion(reservas, sesion.id);
         const aforo = sesion.aforoEfectivo ?? clase.aforoMax;
         const entrenador = usuarioPorId(usuarios, clase.entrenadorId);
-        const inicio = new Date(`${sesion.fecha}T${clase.horaInicio}:00Z`);
+        const inicio = instanteEnEspana(sesion.fecha, clase.horaInicio);
         const yaEmpezo = inicio.getTime() <= new Date(ahora).getTime();
         const faltanMenosDe24h = !yaEmpezo && inicio.getTime() - new Date(ahora).getTime() < 24 * 3600 * 1000;
 

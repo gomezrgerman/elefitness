@@ -28,15 +28,35 @@ type AdminClient = SupabaseClient<Database>;
 
 const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"] as const;
 
-// Las RPCs comparan (sesion.fecha + clase.hora_inicio) — un timestamp sin zona —
-// contra now(). Postgres resuelve esa comparacion en la zona de la sesion, que
-// en Supabase es UTC, asi que las fechas/horas de fixture se construyen en UTC
-// para que "dentro de 12h" signifique de verdad 12h y los tests de la ventana de
-// 24h no dependan de la hora local ni del horario de verano.
-export function instanteUtc(offsetHoras: number): { fecha: string; hora: string; dia: (typeof DIAS)[number] } {
-  const d = new Date(Date.now() + offsetHoras * 3600 * 1000);
-  const iso = d.toISOString();
-  return { fecha: iso.slice(0, 10), hora: iso.slice(11, 16), dia: DIAS[d.getUTCDay()] };
+// Las RPCs interpretan (sesion.fecha + clase.hora_inicio) como hora de pared de
+// Europe/Madrid (migracion 0014) antes de compararlo con now(). Para que
+// "dentro de 12h" signifique de verdad 12h desde el momento en que corre el
+// test, sea cual sea la epoca del anyo, la fixture no puede construirse
+// sumando el offset directamente sobre UTC: hay que calcular el instante
+// objetivo y leer que fecha/hora de pared le corresponde en Madrid, con el
+// offset (+1 o +2) que este en vigor ese dia.
+export function instanteMadrid(offsetHoras: number): { fecha: string; hora: string; dia: (typeof DIAS)[number] } {
+  const objetivo = new Date(Date.now() + offsetHoras * 3600 * 1000);
+
+  const formateador = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Madrid",
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const partes = Object.fromEntries(formateador.formatToParts(objetivo).map((p) => [p.type, p.value]));
+  const fecha = `${partes.year}-${partes.month}-${partes.day}`;
+  const hora = `${partes.hour}:${partes.minute}`;
+
+  // El dia de la semana se deriva de las mismas partes de calendario, no de
+  // objetivo.getUTCDay(): cerca de medianoche el dia civil en Madrid puede ir
+  // por delante del dia UTC.
+  const diaSemana = new Date(Date.UTC(Number(partes.year), Number(partes.month) - 1, Number(partes.day))).getUTCDay();
+
+  return { fecha, hora, dia: DIAS[diaSemana] };
 }
 
 export interface FixtureSesion {
@@ -54,7 +74,7 @@ export async function crearClaseConSesion(
   admin: AdminClient,
   opciones: { offsetHoras: number; aforoMax?: number; aforoEfectivo?: number | null }
 ): Promise<FixtureSesion> {
-  const { fecha, hora, dia } = instanteUtc(opciones.offsetHoras);
+  const { fecha, hora, dia } = instanteMadrid(opciones.offsetHoras);
 
   const { data: entrenador, error: errorEntrenador } = await admin
     .from("users")

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAdminClient } from "../../lib/supabase/admin";
-import { borrarClases, clienteIdPorEmail, crearClaseConSesion, instanteUtc, signInAs } from "./helpers";
+import { borrarClases, clienteIdPorEmail, crearClaseConSesion, instanteMadrid, signInAs } from "./helpers";
 
 // Cobertura del trigger de la migracion 0007: cada movimiento de una reserva
 // deja una linea en reservas_historial, que es lo que alimenta el registro
@@ -97,7 +97,7 @@ describe("trigger reservas_historial", () => {
     // suite. El dia de la semana de la sesion deja de coincidir con el de la
     // clase tras este cambio, pero ninguna de las RPCs ni ninguna asercion de
     // este test depende de eso.
-    const pasada = instanteUtc(-50);
+    const pasada = instanteMadrid(-50);
     await admin.from("sesiones").update({ fecha: pasada.fecha }).eq("id", sesionId);
 
     const ivan = await signInAs("ivan@elefitness.com");

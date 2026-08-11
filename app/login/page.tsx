@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "@/lib/demo-accounts";
+import { DumbbellIcon } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,15 +35,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 p-8">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold">Elefitness</h1>
-        <p className="text-muted-foreground">Inicia sesión</p>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Email y contraseña</CardTitle>
-        </CardHeader>
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-6">
+        <div className="text-center">
+          <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/20">
+            <DumbbellIcon className="size-6 text-primary" />
+          </div>
+          <h1 className="text-2xl font-semibold">Elefitness</h1>
+          <p className="text-muted-foreground">Inicia sesion</p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Email y contraseña</CardTitle>
+          </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <div>
             <Label htmlFor="email">Email</Label>
@@ -72,6 +77,7 @@ export default function LoginPage() {
             </Button>
           ))}
         </div>
+      </div>
       </div>
     </div>
   );

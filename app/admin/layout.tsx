@@ -1,18 +1,53 @@
-import Link from "next/link";
-import { CerrarSesionButton } from "@/components/cerrar-sesion-button";
+"use client";
+
+import { useRouter } from "next/navigation";
+import { BarraLateral, SidebarLogout } from "@/components/barra-lateral";
+import { PestanasMovil } from "@/components/pestanas-movil";
+import { createClient } from "@/lib/supabase/client";
+import {
+  UsersIcon,
+  CalendarIcon,
+  CreditCardIcon,
+} from "lucide-react";
+
+const TABS = [
+  { href: "/admin/clientes", label: "Clientes", icono: UsersIcon },
+  { href: "/admin/clases", label: "Clases", icono: CalendarIcon },
+  { href: "/admin/cobros", label: "Cobros", icono: CreditCardIcon },
+];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+
+  async function cerrarSesion() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
-      <header className="flex items-center justify-between border-b pb-4">
-        <nav className="flex gap-4 text-sm font-medium">
-          <Link href="/admin/clientes">Clientes</Link>
-          <Link href="/admin/clases">Clases</Link>
-          <Link href="/admin/cobros">Cobros</Link>
-        </nav>
-        <CerrarSesionButton />
-      </header>
-      {children}
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <BarraLateral tabs={TABS}>
+        <SidebarLogout onLogout={cerrarSesion} />
+      </BarraLateral>
+
+      <div className="flex flex-1 flex-col">
+        <PestanasMovil tabs={TABS}>
+          <div className="ml-auto flex items-center pr-3">
+            <button
+              onClick={cerrarSesion}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Salir
+            </button>
+          </div>
+        </PestanasMovil>
+
+        <main className="flex-1 p-4 md:p-6 animate-[fade-in-up_0.4s_var(--ease-spring)_forwards]">
+          <div className="mx-auto max-w-5xl">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }

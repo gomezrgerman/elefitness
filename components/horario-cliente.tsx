@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { reservaActivaDeClienteEnSesion } from "@/lib/selectors";
-import { formatearDiaLargo } from "@/lib/fechas";
+import { formatearDiaLargo, instanteEnEspana } from "@/lib/fechas";
 import { BadgeEstado } from "./badge-estado";
 import { reservarSesion, cancelarReserva } from "@/lib/actions/reservas";
 import type { Clase, Sesion, Reserva } from "@/lib/types";
@@ -41,12 +41,18 @@ export function HorarioCliente({ clienteId, hoy, limite, sesionesLibres, clases,
     });
   }
 
-  // Solo se muestran las sesiones reservables: desde hoy hasta el limite de la
-  // ventana. Antes salian tarjetas que el sistema rechazaba al pulsarlas.
+  // Solo se muestran las sesiones reservables: desde ahora (no solo desde hoy
+  // por fecha) hasta el limite de la ventana. El filtro por fecha es solo un
+  // primer recorte barato; la clase de hoy que ya ha empezado se descarta
+  // comparando el instante real via instanteEnEspana, igual que hace la RPC.
+  // Sin esto, una clase de las 09:00 seguia mostrando "Reservar" a las 20:00 y
+  // la RPC la rechazaba con "Esta sesion ya ha pasado".
+  const ahora = new Date();
   const visibles = sesiones
     .filter((s) => s.fecha >= hoy && s.fecha <= limite)
     .map((s) => ({ sesion: s, clase: clases.find((c) => c.id === s.claseId) }))
     .filter((x): x is { sesion: Sesion; clase: Clase } => Boolean(x.clase))
+    .filter((x) => instanteEnEspana(x.sesion.fecha, x.clase.horaInicio) > ahora)
     .sort((a, b) =>
       a.sesion.fecha === b.sesion.fecha
         ? a.clase.horaInicio.localeCompare(b.clase.horaInicio)

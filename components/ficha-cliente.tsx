@@ -116,7 +116,7 @@ export function FichaCliente({ cliente, usuario, planes, pagos, bonos, historial
                 {pagos.map((pago) => (
                   <TableRow key={pago.id}>
                     <TableCell>{pago.fechaPago}</TableCell>
-                    <TableCell>{pago.importe} €</TableCell>
+                    <TableCell>{pago.importe.toFixed(2)} EUR</TableCell>
                     <TableCell>{pago.metodo}</TableCell>
                     <TableCell>
                       <BadgeEstado estado={pago.estado} />

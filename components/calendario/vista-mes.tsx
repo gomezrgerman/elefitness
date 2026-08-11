@@ -1,7 +1,9 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import { reservasConfirmadasDeSesion } from "@/lib/selectors";
 import { diasDeMes, huecosIniciales, numeroDeDia } from "@/lib/fechas";
+import { colorCeldaOcupacion } from "./color-ocupacion";
 import type { Clase, Sesion, Reserva } from "@/lib/types";
 
 interface Props {
@@ -14,16 +16,6 @@ interface Props {
 }
 
 const CABECERAS = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
-
-// La carga es la ocupacion del dia sobre el aforo total de sus clases. Sirve
-// para ver de un vistazo que dias flojean.
-function colorDeCarga(apuntados: number, aforo: number): string {
-  if (aforo === 0) return "";
-  const ratio = apuntados / aforo;
-  if (ratio >= 0.85) return "bg-emerald-600/20";
-  if (ratio >= 0.4) return "bg-amber-500/20";
-  return "bg-red-500/15";
-}
 
 export function VistaMes({ fecha, hoy, clases, sesiones, reservas, onIrADia }: Props) {
   const dias = diasDeMes(fecha);
@@ -40,7 +32,7 @@ export function VistaMes({ fecha, hoy, clases, sesiones, reservas, onIrADia }: P
         {Array.from({ length: huecos }, (_, i) => (
           <span key={`hueco-${i}`} />
         ))}
-        {dias.map((dia) => {
+        {dias.map((dia, idx) => {
           const delDia = sesiones
             .filter((s) => s.fecha === dia)
             .map((s) => ({ sesion: s, clase: clases.find((c) => c.id === s.claseId) }))
@@ -54,13 +46,16 @@ export function VistaMes({ fecha, hoy, clases, sesiones, reservas, onIrADia }: P
               key={dia}
               type="button"
               onClick={() => onIrADia(dia)}
-              className={`flex aspect-square flex-col items-center justify-center rounded-md border text-sm transition hover:bg-muted ${colorDeCarga(
-                apuntados,
-                aforo
-              )} ${dia === hoy ? "border-primary" : ""}`}
+              className={cn(
+                "flex aspect-square flex-col items-center justify-center gap-0.5 rounded-xl bg-card text-sm ring-1 ring-foreground/10 opacity-0 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:ring-primary/30",
+                `animate-stagger-${Math.min(idx + 1, 10)}`,
+                colorCeldaOcupacion(apuntados, aforo),
+                dia === hoy && "ring-primary/50"
+              )}
+              style={{ animation: "fade-in-up 0.4s var(--ease-spring) forwards" }}
             >
               <span className={delDia.length === 0 ? "text-muted-foreground" : "font-medium"}>{numeroDeDia(dia)}</span>
-              {delDia.length > 0 && <span className="text-xs text-muted-foreground">{apuntados}</span>}
+              {delDia.length > 0 && <span className="text-xs text-muted-foreground tabular-nums">{apuntados}</span>}
             </button>
           );
         })}

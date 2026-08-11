@@ -14,6 +14,8 @@ import {
 import { marcarAsistencia } from "@/lib/actions/asistencia";
 import { cancelarReserva } from "@/lib/actions/reservas";
 import { formatearDiaLargo, instanteEnEspana } from "@/lib/fechas";
+import { cn } from "@/lib/utils";
+import { colorBarraOcupacion } from "./color-ocupacion";
 import type { Clase, Sesion, Reserva, Cliente, Usuario, Plan, EstadoAsistencia } from "@/lib/types";
 
 interface Props {
@@ -86,7 +88,7 @@ export function VistaDia({
       <h3 className="font-medium">{formatearDiaLargo(fecha)}</h3>
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {sesionesDelDia.map(({ sesion, clase }) => {
+      {sesionesDelDia.map(({ sesion, clase }, idx) => {
         const confirmadas = reservasConfirmadasDeSesion(reservas, sesion.id);
         const enEspera = reservasListaEsperaDeSesion(reservas, sesion.id);
         const aforo = sesion.aforoEfectivo ?? clase.aforoMax;
@@ -96,14 +98,29 @@ export function VistaDia({
         const faltanMenosDe24h = !yaEmpezo && inicio.getTime() - new Date(ahora).getTime() < 24 * 3600 * 1000;
 
         return (
-          <Card key={sesion.id}>
+          <Card
+            key={sesion.id}
+            className={cn("opacity-0", `animate-stagger-${Math.min(idx + 1, 10)}`)}
+            style={{ animation: "fade-in-up 0.5s var(--ease-spring) forwards" }}
+          >
             <CardHeader>
               <CardTitle className="text-base">
                 {clase.horaInicio} - {clase.horaFin}
               </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {entrenador?.nombre ?? "—"} · {confirmadas.length}/{aforo} plazas
-              </p>
+              <div className="flex flex-col gap-1.5">
+                <p className="text-sm text-muted-foreground">{entrenador?.nombre ?? "—"}</p>
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full transition-all duration-500", colorBarraOcupacion(confirmadas.length, aforo))}
+                      style={{ width: `${aforo > 0 ? (confirmadas.length / aforo) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                    {confirmadas.length}/{aforo}
+                  </span>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-sm">
               {confirmadas.length === 0 && enEspera.length === 0 && (

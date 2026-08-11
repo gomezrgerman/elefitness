@@ -21,7 +21,10 @@ const OPCIONES: { valor: Vista; etiqueta: string }[] = [
 
 export function SelectorVista({ vista, titulo, onCambiarVista, onAnterior, onSiguiente, onHoy }: Props) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
+    <div
+      className="flex flex-wrap items-center justify-between gap-3 opacity-0"
+      style={{ animation: "fade-in-up 0.4s var(--ease-spring) forwards" }}
+    >
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={onAnterior} aria-label="Anterior">
           ←
@@ -34,12 +37,12 @@ export function SelectorVista({ vista, titulo, onCambiarVista, onAnterior, onSig
         </Button>
         <span className="text-sm font-medium">{titulo}</span>
       </div>
-      <div className="flex gap-1">
+      <div className="flex gap-1 rounded-lg bg-muted p-1">
         {OPCIONES.map(({ valor, etiqueta }) => (
           <Button
             key={valor}
             size="sm"
-            variant={vista === valor ? "default" : "outline"}
+            variant={vista === valor ? "default" : "ghost"}
             onClick={() => onCambiarVista(valor)}
           >
             {etiqueta}

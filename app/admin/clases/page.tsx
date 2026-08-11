@@ -7,6 +7,7 @@ import {
   obtenerUsuarios,
   obtenerPlanes,
 } from "@/lib/supabase/queries";
+import { hoyEnEspana } from "@/lib/fechas";
 
 export default async function AdminClasesPage() {
   const [clases, sesiones, reservas, clientes, usuarios, planes] = await Promise.all([
@@ -24,7 +25,7 @@ export default async function AdminClasesPage() {
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold">Clases</h1>
       <CalendarioClases
-        hoy={ahora.slice(0, 10)}
+        hoy={hoyEnEspana()}
         ahora={ahora}
         clases={clases}
         sesiones={sesiones}

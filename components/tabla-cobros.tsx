@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { usuarioPorId, clientePorId, planPorId } from "@/lib/selectors";
 import { BadgeEstado } from "./badge-estado";
 import { registrarPago } from "@/lib/actions/pagos";
+import { hoyEnEspana } from "@/lib/fechas";
 import type { Pago, Cliente, Usuario, Plan } from "@/lib/types";
 
 interface Props {
@@ -23,7 +24,7 @@ export function TablaCobros({ pagos, clientes, usuarios, planes, soloLectura = f
   async function marcarComoPagado(pago: Pago) {
     setProcesando(pago.id);
     setError(null);
-    const fechaHoy = new Date().toISOString().slice(0, 10);
+    const fechaHoy = hoyEnEspana();
     const proximoCobro =
       pago.tipo === "mensual"
         ? new Date(new Date(fechaHoy).setMonth(new Date(fechaHoy).getMonth() + 1)).toISOString().slice(0, 10)

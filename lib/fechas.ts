@@ -13,6 +13,15 @@ function aDate(fecha: string): Date {
   return new Date(`${fecha}T12:00:00Z`);
 }
 
+// `new Date().toISOString().slice(0, 10)` da el dia de hoy en UTC, no en
+// Espana: entre medianoche y la 1-2 de la manana en horario local, UTC todavia
+// va por el dia anterior y esa expresion devuelve la fecha equivocada. Esta
+// funcion resuelve "hoy" en la zona del centro para que ese margen no se cuele
+// en calendarios, filtros de vigencia ni fechas que se guardan en la base.
+export function hoyEnEspana(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(new Date());
+}
+
 function aCadena(d: Date): string {
   return d.toISOString().slice(0, 10);
 }

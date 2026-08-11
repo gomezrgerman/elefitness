@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clienteFormSchema } from "@/lib/validaciones";
+import { hoyEnEspana } from "@/lib/fechas";
 
 const actualizarClienteSchema = z.object({
   planId: z.string().min(1),
@@ -76,7 +77,7 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
     return { error: errorPlan?.message ?? "No se pudo encontrar el plan" };
   }
 
-  const fechaHoy = new Date().toISOString().slice(0, 10);
+  const fechaHoy = hoyEnEspana();
   const { error: errorPago } = await supabase.from("pagos").insert({
     cliente_id: cliente.id,
     plan_id: plan.id,
@@ -191,7 +192,7 @@ export async function actualizarCliente(
         p_cliente_id: clienteId,
         p_plan_id: nuevoPlan.id,
         p_creditos_totales: nuevoPlan.clases_incluidas ?? 0,
-        p_fecha_compra: new Date().toISOString().slice(0, 10),
+        p_fecha_compra: hoyEnEspana(),
         p_tipo: "normal",
       });
       if (errorInsertBono) return { error: errorInsertBono.message };

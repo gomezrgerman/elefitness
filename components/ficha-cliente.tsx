@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BadgeEstado } from "./badge-estado";
 import { planPorId, creditosRestantes } from "@/lib/selectors";
-import { formatearDiaLargo } from "@/lib/fechas";
+import { formatearDiaLargo, hoyEnEspana } from "@/lib/fechas";
 import type {
   Cliente, Usuario, Plan, Pago, BonoCliente, MovimientoHistorial, Sesion, Clase,
 } from "@/lib/types";
@@ -30,7 +30,7 @@ const ETIQUETA_EVENTO: Record<string, string> = {
 
 export function FichaCliente({ cliente, usuario, planes, pagos, bonos, historial, sesiones, clases }: Props) {
   const plan = planPorId(planes, cliente.planId);
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyEnEspana();
   const bonosActivos = bonos.filter((b) => b.activo && (!b.fechaCaducidad || b.fechaCaducidad >= hoy));
 
   function descripcionDeSesion(sesionId: string): string {

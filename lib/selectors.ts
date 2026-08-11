@@ -1,4 +1,5 @@
 import type { Usuario, Cliente, Plan, Clase, Sesion, Reserva, Pago, BonoCliente, DiaSemana } from "./types";
+import { hoyEnEspana } from "./fechas";
 
 export const ORDEN_DIAS: DiaSemana[] = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
 
@@ -34,7 +35,7 @@ export function plazasLibres(sesion: Sesion, clase: Clase, reservas: Reserva[]):
 // Si ninguno tiene creditos se devuelve el mas proximo a caducar igualmente,
 // para poder seguir mostrando el saldo agotado en vez de nada.
 export function bonoDeCliente(bonos: BonoCliente[], clienteId: string): BonoCliente | undefined {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyEnEspana();
   const vigentes = bonos
     .filter((b) => b.clienteId === clienteId && b.activo && (!b.fechaCaducidad || b.fechaCaducidad >= hoy))
     .sort((a, b) => (a.fechaCaducidad ?? "9999-12-31").localeCompare(b.fechaCaducidad ?? "9999-12-31"));

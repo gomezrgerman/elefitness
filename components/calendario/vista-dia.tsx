@@ -93,7 +93,7 @@ export function VistaDia({
         const entrenador = usuarioPorId(usuarios, clase.entrenadorId);
         const inicio = new Date(`${sesion.fecha}T${clase.horaInicio}:00Z`);
         const yaEmpezo = inicio.getTime() <= new Date(ahora).getTime();
-        const faltanMenosDe24h = inicio.getTime() - new Date(ahora).getTime() < 24 * 3600 * 1000;
+        const faltanMenosDe24h = !yaEmpezo && inicio.getTime() - new Date(ahora).getTime() < 24 * 3600 * 1000;
 
         return (
           <Card key={sesion.id}>
@@ -114,13 +114,13 @@ export function VistaDia({
                 const cliente = clientePorId(clientes, reserva.clienteId);
                 const usuario = cliente ? usuarioPorId(usuarios, cliente.usuarioId) : undefined;
                 const plan = cliente ? planPorId(planes, cliente.planId) : undefined;
-                const pierdeCredito = plan?.tipo === "bono" && faltanMenosDe24h;
+                const pierdeCredito = faltanMenosDe24h && (plan ? plan.tipo === "bono" : true);
 
                 return (
                   <div key={reserva.id} className="flex flex-col gap-2 border-b pb-3 last:border-b-0 last:pb-0">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium">{usuario?.nombre ?? "—"}</span>
-                      {puedeQuitar && confirmandoQuitar !== reserva.id && (
+                      {puedeQuitar && !yaEmpezo && confirmandoQuitar !== reserva.id && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -132,7 +132,7 @@ export function VistaDia({
                       )}
                     </div>
 
-                    {puedeQuitar && confirmandoQuitar === reserva.id && (
+                    {puedeQuitar && !yaEmpezo && confirmandoQuitar === reserva.id && (
                       <div className="flex flex-col gap-2 rounded-md bg-muted p-2">
                         <p className="text-xs">
                           {pierdeCredito
@@ -164,6 +164,9 @@ export function VistaDia({
                       ))}
                     </div>
                     {!yaEmpezo && <p className="text-xs text-muted-foreground">La clase aun no ha empezado.</p>}
+                    {puedeQuitar && yaEmpezo && (
+                      <p className="text-xs text-muted-foreground">La clase ya ha empezado, no se puede quitar.</p>
+                    )}
                   </div>
                 );
               })}

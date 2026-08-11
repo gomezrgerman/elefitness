@@ -39,11 +39,49 @@ que ya está construido; se anotan aquí para no redescubrirlos más adelante.
   compensación ni aviso: la RPC no lo señala y `traducirError` no tiene caso para
   ello.
 
-- **Posible desajuste de hidratación en `horario-cliente.tsx`.** Calcula `hoy` con
-  `new Date().toISOString()` dentro de un componente cliente, así que entre las
-  00:00 y las 02:00 hora local el servidor (UTC) y el navegador no coinciden y la
-  lista de tarjetas difiere. Además la lista no se recorta a la ventana de 3
-  semanas, de modo que se ven tarjetas que la RPC va a rechazar.
+- ~~**Posible desajuste de hidratación en `horario-cliente.tsx`.**~~ Resuelto:
+  `hoy` llega como prop calculada en el servidor con `hoyEnEspana()` (no se
+  recalcula en el cliente) y la lista ya se recorta a la ventana de 3 semanas.
+  El 2026-08-11 se cerró también el hueco equivalente en el otro extremo: una
+  clase de hoy ya empezada seguía ofreciendo "Reservar" hasta medianoche
+  porque el filtro comparaba solo por fecha, no por instante; ahora usa
+  `instanteEnEspana` para descartarla en cuanto empieza, igual que hace la RPC.
+
+## 2026-08-11 — Riesgo de truncado silencioso en obtenerSesiones/obtenerReservas
+
+`lib/supabase/queries.ts`: `obtenerSesiones()` y `obtenerReservas()` hacen
+`select` sin `.range()`/`.limit()`, y ahora alimentan el calendario completo
+(dia/semana/mes). PostgREST tiene un ajuste de proyecto, **Max Rows**
+(Dashboard → Settings → API), que trunca cualquier `select` sin rango
+explicito por encima de ese numero -- en silencio, sin error ni cabecera que
+lo distinga de "no hay mas filas". El valor por defecto que documenta
+Supabase para proyectos nuevos es 1000, pero es una opcion de panel, no algo
+que quede en `supabase/config.toml` (este repo no tiene ese fichero: el
+proyecto se administra desde el Dashboard hosted) ni algo consultable con la
+service_role key vía SQL o REST. No tengo acceso a un token de Management API
+en este entorno, asi que **no he podido confirmar el valor real configurado**
+-- esto queda pendiente de mirar en el Dashboard, no asumido.
+
+Estado actual del proyecto (consultado en vivo con la service_role key el
+2026-08-11): 8 filas en `reservas`, 2 en `sesiones` -- es solo el seed, muy
+lejos de cualquier limite razonable. No hay riesgo hoy.
+
+Proyeccion con el ritmo de uso real descrito en el brief (~3 clases/dia x 4-5
+clientas): 12-15 reservas/dia ⇒ el limite de 1000 filas (si es ese el valor
+configurado) se cruzaria en unos 65-85 dias de uso real, es decir dentro de
+2-3 meses de que el centro empiece a operar. A partir de ahi la vista de dia
+empezaria a mostrar menos nombres de los que realmente hay reservados, sin
+ningun aviso.
+
+No lo he arreglado: la solucion correcta es acotar ambas consultas por rango
+de fechas (recibir `desde`/`hasta` en vez de traer toda la tabla), y eso toca
+a todos los llamantes de `obtenerSesiones`/`obtenerReservas`
+(`app/cliente/page.tsx`, `app/admin/clases/page.tsx`,
+`app/entrenador/clases/page.tsx`, y quien mas las use) -- es una tarea propia,
+no un ajuste de una linea. Recomendacion: hacerlo antes de que el centro
+lleve ~1-2 meses de operacion real, o como mitigacion mas barata a corto
+plazo, confirmar y si hace falta subir el Max Rows del Dashboard mientras se
+programa el cambio de verdad.
 
 ## Limpieza y robustez
 
@@ -57,9 +95,13 @@ que ya está construido; se anotan aquí para no redescubrirlos más adelante.
   simultáneas de la misma reserva podrían pasar ambas la comprobación y ejecutar
   la promoción de lista de espera dos veces. Es un patrón heredado, pero ahora el
   bloque también emite un bono.
-- El corte de las 24h compara un `timestamp` sin zona contra `now()`, apoyándose
-  en que la zona de la sesión de Postgres coincida con la del negocio. Conviene
-  fijar la zona explícitamente.
+- ~~El corte de las 24h compara un `timestamp` sin zona contra `now()`,
+  apoyándose en que la zona de la sesión de Postgres coincida con la del
+  negocio.~~ Resuelto por la migración 0014 (rama `worktree-panel-mandos-v1`):
+  `v_fecha_hora_sesion` ahora se calcula con `at time zone 'Europe/Madrid'`
+  explícito, tanto para este corte de 24h como para las guardas de "ya ha
+  pasado" / "todavía no ha empezado" de `marcar_asistencia`, `reservar_sesion`
+  y `cancelar_reserva`.
 - Faltan índices en las claves foráneas de `bonos_cliente` y `reservas_historial`.
 - `vitest.config.ts` usa `isolate: false` para que `signInAs` cachee sesiones y no
   agotar el límite de inicios de sesión de Supabase. Funciona, pero es una palanca

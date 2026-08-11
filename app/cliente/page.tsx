@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { HorarioCliente } from "@/components/horario-cliente";
 import { MiPlan } from "@/components/mi-plan";
+import { Card, CardContent } from "@/components/ui/card";
+import { BadgeEstado } from "@/components/badge-estado";
+import { CalendarIcon, ClockIcon } from "lucide-react";
 import {
   obtenerClienteDeUsuario,
   obtenerUsuarios,
@@ -13,7 +16,7 @@ import {
   obtenerBonosCliente,
   obtenerOcupacionSesiones,
 } from "@/lib/supabase/queries";
-import { usuarioPorId } from "@/lib/selectors";
+import { usuarioPorId, reservaActivaDeClienteEnSesion } from "@/lib/selectors";
 import { sumarDias, hoyEnEspana } from "@/lib/fechas";
 
 export default async function ClientePage() {
@@ -50,12 +53,58 @@ export default async function ClientePage() {
     sesionesLibres[sesion.id] = (ocupacion[sesion.id] ?? 0) < aforo;
   }
 
+  const sesionesHoy = sesiones.filter((s) => s.fecha === hoy);
+  const reservaHoy = sesionesHoy.find((s) => {
+    const r = reservaActivaDeClienteEnSesion(reservas, cliente.id, s.id);
+    return r && r.estado === "confirmada";
+  });
+  const claseHoy = reservaHoy ? clases.find((c) => c.id === reservaHoy.claseId) : null;
+
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold">Hola, {usuario.nombre}</h1>
+      <div>
+        <p className="text-sm text-muted-foreground">Hola, {usuario.nombre}</p>
+        <h1 className="text-2xl font-semibold">Tu entrenamiento</h1>
+      </div>
+
+      {claseHoy && reservaHoy ? (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/20">
+                <CalendarIcon className="size-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Tienes clase hoy</p>
+                <p className="text-xs text-muted-foreground">
+                  {claseHoy.horaInicio} - {claseHoy.horaFin}
+                  {" · "}
+                  {usuarios.find((u) => u.id === claseHoy.entrenadorId)?.nombre ?? "tu entrenador"}
+                </p>
+              </div>
+            </div>
+            <BadgeEstado estado="confirmada" />
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-dashed">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted/50">
+              <ClockIcon className="size-5 text-muted-foreground/60" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium">Sin clase reservada para hoy</p>
+              <p className="text-xs text-muted-foreground">Revisa el horario y reserva tu plaza</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <MiPlan cliente={cliente} planes={planes} pagos={pagos} bonosCliente={bonosCliente} />
       <div>
-        <h2 className="mb-3 text-lg font-medium">Proximas clases</h2>
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+          Horario semanal
+        </h2>
         <HorarioCliente
           clienteId={cliente.id}
           hoy={hoy}

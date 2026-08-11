@@ -3,10 +3,12 @@
 import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { reservaActivaDeClienteEnSesion } from "@/lib/selectors";
 import { formatearDiaLargo, instanteEnEspana } from "@/lib/fechas";
 import { BadgeEstado } from "./badge-estado";
 import { reservarSesion, cancelarReserva } from "@/lib/actions/reservas";
+import { cn } from "@/lib/utils";
 import type { Clase, Sesion, Reserva } from "@/lib/types";
 
 interface Props {
@@ -24,12 +26,18 @@ interface Props {
 export function HorarioCliente({ clienteId, hoy, limite, sesionesLibres, clases, sesiones, reservas }: Props) {
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   function reservar(sesionId: string) {
     setError(null);
     startTransition(async () => {
       const respuesta = await reservarSesion(sesionId, clienteId);
-      if (respuesta.error) setError(respuesta.error);
+      if (respuesta.error) {
+        setError(respuesta.error);
+        toast(respuesta.error, "error");
+      } else {
+        toast("Reserva confirmada", "success");
+      }
     });
   }
 
@@ -37,7 +45,12 @@ export function HorarioCliente({ clienteId, hoy, limite, sesionesLibres, clases,
     setError(null);
     startTransition(async () => {
       const respuesta = await cancelarReserva(reservaId);
-      if (respuesta.error) setError(respuesta.error);
+      if (respuesta.error) {
+        setError(respuesta.error);
+        toast(respuesta.error, "error");
+      } else {
+        toast("Reserva cancelada", "info");
+      }
     });
   }
 
@@ -67,24 +80,49 @@ export function HorarioCliente({ clienteId, hoy, limite, sesionesLibres, clases,
     <div className="flex flex-col gap-4">
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {visibles.map(({ sesion, clase }) => {
+        {visibles.map(({ sesion, clase }, idx) => {
           const hayHueco = sesionesLibres[sesion.id] ?? false;
           const miReserva = reservaActivaDeClienteEnSesion(reservas, clienteId, sesion.id);
           return (
-            <Card key={sesion.id}>
+            <Card
+              key={sesion.id}
+              className={cn("opacity-0", `animate-stagger-${Math.min(idx + 1, 10)}`)}
+              style={{ animation: "fade-in-up 0.5s var(--ease-spring) forwards" }}
+            >
               <CardHeader>
-                <CardTitle className="text-base">
-                  {formatearDiaLargo(sesion.fecha)}
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {clase.horaInicio} - {clase.horaFin} · {hayHueco ? "Libre" : "Completo"}
-                </p>
+                <CardTitle className="text-base">{formatearDiaLargo(sesion.fecha)}</CardTitle>
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-sm text-muted-foreground">
+                    {clase.horaInicio} - {clase.horaFin}
+                  </p>
+                  {/* Barra de aforo sin cifras ni proporcion real: solo dos
+                      estados (libre/completo) para que la clienta no elija
+                      clase segun cuanta gente hay. */}
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full w-full rounded-full transition-colors duration-500",
+                          hayHueco ? "bg-primary" : "bg-red-500/60"
+                        )}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {hayHueco ? "Libre" : "Completo"}
+                    </span>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {miReserva ? (
                   <div className="flex items-center justify-between">
                     <BadgeEstado estado={miReserva.estado} />
-                    <Button variant="outline" size="sm" disabled={pendiente} onClick={() => cancelar(miReserva.id)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={pendiente}
+                      onClick={() => cancelar(miReserva.id)}
+                    >
                       Cancelar
                     </Button>
                   </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { planPorId, usuarioPorId } from "@/lib/selectors";
@@ -13,10 +14,11 @@ interface Props {
   clientes: Cliente[];
   usuarios: Usuario[];
   planes: Plan[];
+  basePath: string;
   soloLectura?: boolean;
 }
 
-export function ListaClientes({ clientes, usuarios, planes, soloLectura = false }: Props) {
+export function ListaClientes({ clientes, usuarios, planes, basePath, soloLectura = false }: Props) {
   const [clienteEnEdicion, setClienteEnEdicion] = useState<Cliente | null>(null);
   const [creando, setCreando] = useState(false);
   const [pendiente, startTransition] = useTransition();
@@ -64,7 +66,11 @@ export function ListaClientes({ clientes, usuarios, planes, soloLectura = false 
             if (!usuario) return null;
             return (
               <TableRow key={cliente.id}>
-                <TableCell className="font-medium">{usuario.nombre}</TableCell>
+                <TableCell className="font-medium">
+                  <Link href={`${basePath}/${cliente.id}`} className="hover:underline">
+                    {usuario.nombre}
+                  </Link>
+                </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {usuario.email}
                   <br />

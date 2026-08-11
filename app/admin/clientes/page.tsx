@@ -7,7 +7,7 @@ export default async function AdminClientesPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold">Clientes</h1>
-      <ListaClientes clientes={clientes} usuarios={usuarios} planes={planes} />
+      <ListaClientes clientes={clientes} usuarios={usuarios} planes={planes} basePath="/admin/clientes" />
     </div>
   );
 }

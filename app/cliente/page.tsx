@@ -14,7 +14,7 @@ import {
   obtenerOcupacionSesiones,
 } from "@/lib/supabase/queries";
 import { usuarioPorId } from "@/lib/selectors";
-import { sumarDias } from "@/lib/fechas";
+import { sumarDias, hoyEnEspana } from "@/lib/fechas";
 
 export default async function ClientePage() {
   const supabase = await createClient();
@@ -40,7 +40,7 @@ export default async function ClientePage() {
   if (!usuario) redirect("/login");
 
   // El conteo exacto se resuelve aqui y nunca llega al navegador de la clienta.
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyEnEspana();
   const limite = sumarDias(hoy, 21);
   const sesionesLibres: Record<string, boolean> = {};
   for (const sesion of sesiones) {

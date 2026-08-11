@@ -95,3 +95,12 @@ export interface BonoCliente {
   fechaCaducidad: string | null;
   activo: boolean;
 }
+
+export interface MovimientoHistorial {
+  id: string;
+  reservaId: string;
+  sesionId: string;
+  clienteId: string;
+  evento: string;
+  creadoEn: string;
+}

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Cliente, Usuario, Plan, Clase, Sesion, Reserva, Pago, BonoCliente } from "@/lib/types";
+import type { Cliente, Usuario, Plan, Clase, Sesion, Reserva, Pago, BonoCliente, MovimientoHistorial } from "@/lib/types";
 
 export async function obtenerClientes(): Promise<Cliente[]> {
   const supabase = await createClient();
@@ -164,4 +164,22 @@ export async function obtenerOcupacionSesiones(): Promise<Record<string, number>
     mapa[fila.sesion_id] = fila.confirmadas;
   }
   return mapa;
+}
+
+export async function obtenerHistorialDeCliente(clienteId: string): Promise<MovimientoHistorial[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("reservas_historial")
+    .select("id, reserva_id, sesion_id, cliente_id, evento, creado_en")
+    .eq("cliente_id", clienteId)
+    .order("creado_en", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    reservaId: m.reserva_id,
+    sesionId: m.sesion_id,
+    clienteId: m.cliente_id,
+    evento: m.evento,
+    creadoEn: m.creado_en,
+  }));
 }

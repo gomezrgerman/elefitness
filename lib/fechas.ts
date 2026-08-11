@@ -80,6 +80,21 @@ export function sumarMeses(fecha: string, meses: number): string {
   return aCadena(d);
 }
 
+// A diferencia de sumarMeses (que fija el dia a 1 a proposito, para la
+// navegacion del calendario), esta conserva el dia de origen y solo lo
+// recorta si el mes destino es mas corto: 31 de agosto + 1 mes -> 30 de
+// septiembre, no 1 de octubre. `Date#setMonth`/`setUTCMonth` desborda al mes
+// siguiente en ese caso porque no hay "31 de septiembre", y ese desborde es
+// justo el bug que esto evita. Pensada para fechas de cobro (proximo_cobro),
+// donde "un mes despues, mismo dia" es la semantica esperada.
+export function sumarMesesMismoDia(fecha: string, meses: number): string {
+  const [anyo, mes, dia] = fecha.split("-").map(Number);
+  // Dia 0 del mes siguiente al destino = ultimo dia del mes destino.
+  const ultimoDiaDestino = new Date(Date.UTC(anyo, mes - 1 + meses + 1, 0)).getUTCDate();
+  const diaAjustado = Math.min(dia, ultimoDiaDestino);
+  return aCadena(new Date(Date.UTC(anyo, mes - 1 + meses, diaAjustado, 12)));
+}
+
 // La semana empieza en lunes.
 export function inicioDeSemana(fecha: string): string {
   const d = aDate(fecha);

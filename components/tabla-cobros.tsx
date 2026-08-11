@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { usuarioPorId, clientePorId, planPorId } from "@/lib/selectors";
 import { BadgeEstado } from "./badge-estado";
 import { registrarPago } from "@/lib/actions/pagos";
-import { hoyEnEspana } from "@/lib/fechas";
+import { hoyEnEspana, sumarMesesMismoDia } from "@/lib/fechas";
 import type { Pago, Cliente, Usuario, Plan } from "@/lib/types";
 
 interface Props {
@@ -25,10 +25,7 @@ export function TablaCobros({ pagos, clientes, usuarios, planes, soloLectura = f
     setProcesando(pago.id);
     setError(null);
     const fechaHoy = hoyEnEspana();
-    const proximoCobro =
-      pago.tipo === "mensual"
-        ? new Date(new Date(fechaHoy).setMonth(new Date(fechaHoy).getMonth() + 1)).toISOString().slice(0, 10)
-        : null;
+    const proximoCobro = pago.tipo === "mensual" ? sumarMesesMismoDia(fechaHoy, 1) : null;
     const respuesta = await registrarPago({ pagoId: pago.id, fechaPago: fechaHoy, proximoCobro });
     if (respuesta.error) setError(respuesta.error);
     setProcesando(null);

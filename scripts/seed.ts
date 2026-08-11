@@ -3,6 +3,7 @@ config({ path: ".env.local" });
 
 import { createAdminClient } from "../lib/supabase/admin";
 import { DEMO_PASSWORD } from "../lib/demo-accounts";
+import { hoyEnEspana, sumarDias, sumarMesesMismoDia } from "../lib/fechas";
 
 const admin = createAdminClient();
 
@@ -36,9 +37,11 @@ const DIA_A_NUMERO: Record<string, number> = {
   sabado: 6,
 };
 
-// Primera ocurrencia de `dia` a partir de hoy + minDias. Se calcula en UTC (la
-// misma zona en la que Postgres interpreta las fechas de sesion) para que no
-// baile un dia segun la hora local a la que se corra el seed.
+// Primera ocurrencia de `dia` a partir de hoy + minDias. "Hoy" se resuelve en
+// Europe/Madrid (hoyEnEspana), no en UTC: anclarlo en `new Date()` + UTC hacia
+// desplazaba la fixture un dia si el seed se corria justo despues de
+// medianoche en Espana, cuando UTC todavia (o ya) va por otro dia civil segun
+// la epoca del anyo -- se ve como un bug en plena demo con la clienta.
 //
 // minDias existe porque los tests de integracion comprueban la regla de las 24h
 // contra las sesiones del seed: con la version anterior (proxima ocurrencia del
@@ -48,20 +51,15 @@ const DIA_A_NUMERO: Record<string, number> = {
 // de reserva de 21 dias.
 function proximaFecha(dia: string, minDias: number): string {
   const objetivo = DIA_A_NUMERO[dia];
-  const fecha = new Date();
-  fecha.setUTCHours(12, 0, 0, 0);
-  fecha.setUTCDate(fecha.getUTCDate() + minDias);
-  while (fecha.getUTCDay() !== objetivo) {
-    fecha.setUTCDate(fecha.getUTCDate() + 1);
+  let fecha = sumarDias(hoyEnEspana(), minDias);
+  while (new Date(`${fecha}T12:00:00Z`).getUTCDay() !== objetivo) {
+    fecha = sumarDias(fecha, 1);
   }
-  return fecha.toISOString().slice(0, 10);
+  return fecha;
 }
 
 function fechaRelativaHoy(dias: number): string {
-  const fecha = new Date();
-  fecha.setUTCHours(12, 0, 0, 0);
-  fecha.setUTCDate(fecha.getUTCDate() + dias);
-  return fecha.toISOString().slice(0, 10);
+  return sumarDias(hoyEnEspana(), dias);
 }
 
 async function main() {
@@ -198,8 +196,7 @@ async function main() {
   // ese dia el filtro de caducidad de reservar_sesion lo excluia, tumbando
   // varios tests de integracion sin que nadie hubiera tocado el codigo.
   const fechaCompraBono = fechaRelativaHoy(-14);
-  const caducidadBono = new Date(`${fechaCompraBono}T12:00:00Z`);
-  caducidadBono.setUTCMonth(caducidadBono.getUTCMonth() + 3);
+  const caducidadBono = sumarMesesMismoDia(fechaCompraBono, 3);
   const { error: errorBono } = await admin.from("bonos_cliente").insert({
     cliente_id: idLaura,
     plan_id: planBono.id,
@@ -207,7 +204,7 @@ async function main() {
     creditos_totales: 10,
     creditos_usados: 0,
     fecha_compra: fechaCompraBono,
-    fecha_caducidad: caducidadBono.toISOString().slice(0, 10),
+    fecha_caducidad: caducidadBono,
     activo: true,
   });
   if (errorBono) throw errorBono;

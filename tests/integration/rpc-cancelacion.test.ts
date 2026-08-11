@@ -211,6 +211,30 @@ describe("Reglas de cancelacion", () => {
     expect(sigueViva?.estado).toBe("confirmada");
   });
 
+  it("no se puede cancelar una reserva de una sesion que acaba de empezar (regresion migracion 0014)", async () => {
+    // El test de arriba (offsetHoras: -2) no basta como regresion: en verano
+    // (CEST, +2h) el instante "percibido" por el codigo pre-0014 esta 2h por
+    // delante del real, asi que a las -2h ambos codigos (el correcto y el
+    // revertido) ya coinciden en rechazar la cancelacion -- la diferencia solo
+    // es observable dentro de esa ventana de desfase (1h en invierno, 2h en
+    // verano). 30min queda comodamente por debajo del desfase minimo posible
+    // para detectar la regresion en cualquier epoca del anyo.
+    const fixture = await crearClaseConSesion(admin, { offsetHoras: -0.5 });
+    clasesCreadas.push(fixture.claseId);
+
+    const { data: reserva, error: errorInsert } = await admin
+      .from("reservas")
+      .insert({ sesion_id: fixture.sesionId, cliente_id: mariaClienteId, estado: "confirmada" })
+      .select()
+      .single();
+    expect(errorInsert).toBeNull();
+
+    const maria = await signInAs("maria@example.com");
+    const { error } = await maria.rpc("cancelar_reserva", { p_reserva_id: reserva!.id });
+    expect(error).not.toBeNull();
+    expect(error?.message).toMatch(/ya ha pasado/);
+  });
+
   it("no se puede cancelar una reserva con la asistencia ya registrada", async () => {
     const fixture = await crearClaseConSesion(admin, { offsetHoras: 48 });
     clasesCreadas.push(fixture.claseId);
@@ -237,6 +261,25 @@ describe("Reglas de cancelacion", () => {
 
   it("no se puede reservar una sesion que ya ha pasado", async () => {
     const fixture = await crearClaseConSesion(admin, { offsetHoras: -2 });
+    clasesCreadas.push(fixture.claseId);
+
+    const maria = await signInAs("maria@example.com");
+    const { error } = await maria.rpc("reservar_sesion", {
+      p_sesion_id: fixture.sesionId,
+      p_cliente_id: mariaClienteId,
+    });
+    expect(error).not.toBeNull();
+    expect(error?.message).toMatch(/ya ha pasado/);
+
+    const { data: reservas } = await admin.from("reservas").select("id").eq("sesion_id", fixture.sesionId);
+    expect(reservas).toEqual([]);
+  });
+
+  it("no se puede reservar una sesion que acaba de empezar (regresion migracion 0014)", async () => {
+    // Misma razon que el test equivalente de cancelar_reserva arriba: offsetHoras
+    // -2 no distingue el codigo correcto del revertido en verano, porque a esa
+    // distancia el desfase de 0014 (hasta 2h en CEST) ya se ha agotado.
+    const fixture = await crearClaseConSesion(admin, { offsetHoras: -0.5 });
     clasesCreadas.push(fixture.claseId);
 
     const maria = await signInAs("maria@example.com");

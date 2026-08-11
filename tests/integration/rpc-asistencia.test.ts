@@ -12,6 +12,7 @@ describe("marcar_asistencia RPC", () => {
   let reservaFuturaId: string;
   let reservaListaEsperaId: string;
   let reservaIdempotenciaId: string;
+  let reservaRecienEmpezadaId: string;
 
   beforeAll(async () => {
     mariaClienteId = await clienteIdPorEmail(admin, "maria@example.com");
@@ -62,6 +63,28 @@ describe("marcar_asistencia RPC", () => {
       .select()
       .single();
     reservaFuturaId = rFutura!.id;
+
+    // Regresion de la migracion 0014: una clase que ha empezado hace muy poco
+    // (30min). Antes de 0014 la comparacion trataba la hora de pared de Madrid
+    // como si fuera UTC, asi que el instante "percibido" de inicio quedaba por
+    // delante del real en 1h (invierno, CET) o 2h (verano, CEST) -- justo el
+    // desfase que 0014 corrige. Con esa migracion revertida, marcar_asistencia
+    // seguiria rechazando esta sesion con "todavia no ha empezado" durante esa
+    // ventana. 30min queda comodamente por debajo del desfase minimo posible
+    // (1h en invierno) para que el test detecte la regresion en cualquier
+    // epoca del anyo, y muy por encima del tiempo real que tarda en ejecutarse
+    // el test (milisegundos) para no dar un falso positivo por lentitud.
+    // offsetHoras: -3 (arriba) no sirve para esto: a las 3h ya pasaron incluso
+    // las 2h del desfase de verano, asi que el codigo pre-0014 tambien deja
+    // pasar esa sesion y el test seguiria en verde con el bug presente.
+    const recienEmpezada = await crearClaseConSesion(admin, { offsetHoras: -0.5 });
+    clasesCreadas.push(recienEmpezada.claseId);
+    const { data: rRecienEmpezada } = await admin
+      .from("reservas")
+      .insert({ sesion_id: recienEmpezada.sesionId, cliente_id: saraClienteId, estado: "confirmada" })
+      .select()
+      .single();
+    reservaRecienEmpezadaId = rRecienEmpezada!.id;
   });
 
   afterAll(async () => {
@@ -194,6 +217,16 @@ describe("marcar_asistencia RPC", () => {
 
     const { data: reserva } = await admin.from("reservas").select("asistencia").eq("id", reservaFuturaId).single();
     expect(reserva?.asistencia).toBe("pendiente");
+  });
+
+  it("se puede marcar asistencia de una clase que acaba de empezar (regresion migracion 0014)", async () => {
+    const ivan = await signInAs("ivan@elefitness.com");
+    const { data, error } = await ivan.rpc("marcar_asistencia", {
+      p_reserva_id: reservaRecienEmpezadaId,
+      p_asistencia: "asistio",
+    });
+    expect(error).toBeNull();
+    expect(data?.asistencia).toBe("asistio");
   });
 
   it("el historial anota la correccion al volver a pendiente", async () => {

@@ -9,6 +9,7 @@ import {
   obtenerReservas,
   obtenerPagos,
 } from "@/lib/supabase/queries";
+import { hoyEnEspana } from "@/lib/fechas";
 
 export default async function AdminDashboard() {
   const [clientes, usuarios, clases, sesiones, reservas, pagos] = await Promise.all([
@@ -21,7 +22,7 @@ export default async function AdminDashboard() {
   ]);
 
   const activas = clientes.filter((c) => c.estado === "activo").length;
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyEnEspana();
   const clasesHoy = sesiones.filter((s) => s.fecha === hoy).length;
   const alDia = pagos.filter((p) => p.estado === "al_dia").length;
   const morosos = pagos.filter((p) => p.estado === "moroso").length;

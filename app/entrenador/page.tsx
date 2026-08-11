@@ -9,6 +9,7 @@ import {
   obtenerReservas,
 } from "@/lib/supabase/queries";
 import { usuarioPorId, clientePorId } from "@/lib/selectors";
+import { hoyEnEspana } from "@/lib/fechas";
 
 export default async function EntrenadorDashboard() {
   const [clientes, usuarios, clases, sesiones, reservas] = await Promise.all([
@@ -20,7 +21,7 @@ export default async function EntrenadorDashboard() {
   ]);
 
   const activas = clientes.filter((c) => c.estado === "activo").length;
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyEnEspana();
   const sesionesHoy = sesiones.filter((s) => s.fecha === hoy);
   const clasesHoy = sesionesHoy.length;
 

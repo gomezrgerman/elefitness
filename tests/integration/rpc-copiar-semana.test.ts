@@ -150,6 +150,41 @@ describe("copiar_semana RPC", () => {
     expect(bonoDespues?.creditos_usados).toBe(bonoAntes?.creditos_usados);
   });
 
+  it("una clase no recurrente en la semana origen no se propaga al copiar la semana", async () => {
+    // Hueco suelto (recurrente:false) dentro de la misma semana origen que las
+    // fixtures de arriba. Migracion 0015: copiar_semana filtra por
+    // c.recurrente = true en el select del bucle exterior -- sin ese filtro
+    // este hueco, abierto para un dia suelto, se repetiria cada semana.
+    const fixtureHueco = await crearClaseConSesion(admin, {
+      offsetHoras: OFFSET_HORAS_ORIGEN + 30,
+      recurrente: false,
+    });
+    clasesCreadas.push(fixtureHueco.claseId);
+
+    const elena = await signInAs("elena@elefitness.com");
+    const { error } = await elena.rpc("copiar_semana", {
+      p_fecha_origen: fechaOrigen,
+      p_fecha_destino: fechaDestino,
+    });
+    expect(error).toBeNull();
+
+    const { data: sesionHuecoEnDestino } = await admin
+      .from("sesiones")
+      .select("id")
+      .eq("clase_id", fixtureHueco.claseId)
+      .eq("fecha", sumarDias(fixtureHueco.fecha, 7));
+    expect(sesionHuecoEnDestino).toEqual([]);
+
+    // Las recurrentes de este mismo fichero, en cambio, si se copian.
+    const { data: sesionLunesEnDestino } = await admin
+      .from("sesiones")
+      .select("id")
+      .eq("clase_id", claseLunesId)
+      .eq("fecha", fechaDestino)
+      .single();
+    expect(sesionLunesEnDestino).not.toBeNull();
+  });
+
   it("un cliente no puede copiar el horario (admin-only)", async () => {
     const maria = await signInAs("maria@example.com");
     const { error } = await maria.rpc("copiar_semana", {

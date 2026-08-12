@@ -69,15 +69,25 @@ export async function ajustarAforoSesion(sesionId: string, aforoEfectivo: number
 // invisible en la UI pero ya forma parte del horario fijo, y una semana
 // despues copiar_semana la habria propagado sin que nadie la viera nunca.
 // Mismo patron de deshacer que altaCliente en lib/actions/clientes.ts.
-const abrirHuecoSchema = z.object({
-  dia: z.enum(["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]),
-  horaInicio: z.string().regex(HORA_REGEX, "Hora de inicio invalida"),
-  horaFin: z.string().regex(HORA_REGEX, "Hora de fin invalida"),
-  fecha: z.string().regex(FECHA_REGEX, "Fecha invalida"),
-  aforo: z.number().int("El aforo debe ser un numero entero").min(1, "El aforo debe ser al menos 1"),
-  entrenadorId: z.string().uuid("Entrenador invalido"),
-  recurrente: z.boolean(),
-});
+const abrirHuecoSchema = z
+  .object({
+    dia: z.enum(["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]),
+    horaInicio: z.string().regex(HORA_REGEX, "Hora de inicio invalida"),
+    horaFin: z.string().regex(HORA_REGEX, "Hora de fin invalida"),
+    fecha: z.string().regex(FECHA_REGEX, "Fecha invalida"),
+    aforo: z.number().int("El aforo debe ser un numero entero").min(1, "El aforo debe ser al menos 1"),
+    entrenadorId: z.string().uuid("Entrenador invalido"),
+    recurrente: z.boolean(),
+  })
+  // La comparacion es de texto, no de horas: "horaFin < horaInicio" con
+  // strings como "09:30" funciona porque HORA_REGEX exige dos digitos en cada
+  // parte (cero a la izquierda incluido), asi que el orden lexicografico
+  // coincide con el orden cronologico dentro del mismo dia. No cubre clases
+  // que cruzan medianoche, pero el horario del centro no las tiene.
+  .refine((datos) => datos.horaFin > datos.horaInicio, {
+    message: "La hora de fin debe ser posterior a la de inicio",
+    path: ["horaFin"],
+  });
 
 export async function abrirHueco(datos: unknown): Promise<{ error?: string }> {
   const resultado = abrirHuecoSchema.safeParse(datos);

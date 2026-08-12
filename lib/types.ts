@@ -57,7 +57,15 @@ export interface Sesion {
   claseId: string;
   fecha: string;
   aforoEfectivo: number | null;
+  abierta: boolean;
   createdAt: string;
+}
+
+export interface FranjaHoraria {
+  id: string;
+  horaInicio: string;
+  horaFin: string;
+  orden: number;
 }
 
 export interface Reserva {

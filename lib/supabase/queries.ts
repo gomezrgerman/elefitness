@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Cliente, Usuario, Plan, Clase, Sesion, Reserva, Pago, BonoCliente, MovimientoHistorial } from "@/lib/types";
+import type { Cliente, Usuario, Plan, Clase, Sesion, Reserva, Pago, BonoCliente, MovimientoHistorial, FranjaHoraria } from "@/lib/types";
 
 export async function obtenerClientes(): Promise<Cliente[]> {
   const supabase = await createClient();
@@ -87,13 +87,14 @@ export async function obtenerSesiones(): Promise<Sesion[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sesiones")
-    .select("id, clase_id, fecha, aforo_efectivo, created_at");
+    .select("id, clase_id, fecha, aforo_efectivo, abierta, created_at");
   if (error) throw error;
   return (data ?? []).map((s) => ({
     id: s.id,
     claseId: s.clase_id,
     fecha: s.fecha,
     aforoEfectivo: s.aforo_efectivo,
+    abierta: s.abierta,
     createdAt: s.created_at,
   }));
 }
@@ -181,5 +182,20 @@ export async function obtenerHistorialDeCliente(clienteId: string): Promise<Movi
     clienteId: m.cliente_id,
     evento: m.evento,
     creadoEn: m.creado_en,
+  }));
+}
+
+export async function obtenerFranjas(): Promise<FranjaHoraria[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("franjas_horarias")
+    .select("id, hora_inicio, hora_fin, orden")
+    .order("orden", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((f) => ({
+    id: f.id,
+    horaInicio: f.hora_inicio.slice(0, 5),
+    horaFin: f.hora_fin.slice(0, 5),
+    orden: f.orden,
   }));
 }

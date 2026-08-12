@@ -3,7 +3,7 @@ config({ path: ".env.local" });
 
 import { createAdminClient } from "../lib/supabase/admin";
 import { DEMO_PASSWORD } from "../lib/demo-accounts";
-import { hoyEnEspana, sumarDias, sumarMesesMismoDia } from "../lib/fechas";
+import { hoyEnEspana, sumarDias, sumarMesesMismoDia, inicioDeSemana } from "../lib/fechas";
 
 const admin = createAdminClient();
 
@@ -27,35 +27,37 @@ const usuarios: SeedUsuario[] = [
   { email: "eva@example.com", nombre: "Eva Molina", telefono: "600555008", rol: "cliente" },
 ];
 
-const DIA_A_NUMERO: Record<string, number> = {
-  domingo: 0,
-  lunes: 1,
-  martes: 2,
-  miercoles: 3,
-  jueves: 4,
-  viernes: 5,
-  sabado: 6,
-};
+// Horario fijo real del centro (Denia), facilitado por Elena antes de la demo:
+// 12 franjas de 50 minutos, cada una activa solo los dias laborables que se
+// listan aqui (nunca sabado ni domingo). Los huecos de mediodia
+// (11:10-12:00, 12:00-12:50, 13:00-13:50) se dejan deliberadamente fuera de
+// esta lista: son franjas que Elena puede abrir bajo demanda mas adelante, no
+// clases fijas todavia -- no seedearlas.
+interface FranjaHoraria {
+  horaInicio: string;
+  horaFin: string;
+  dias: string[];
+}
 
-// Primera ocurrencia de `dia` a partir de hoy + minDias. "Hoy" se resuelve en
-// Europe/Madrid (hoyEnEspana), no en UTC: anclarlo en `new Date()` + UTC hacia
-// desplazaba la fixture un dia si el seed se corria justo despues de
-// medianoche en Espana, cuando UTC todavia (o ya) va por otro dia civil segun
-// la epoca del anyo -- se ve como un bug en plena demo con la clienta.
-//
-// minDias existe porque los tests de integracion comprueban la regla de las 24h
-// contra las sesiones del seed: con la version anterior (proxima ocurrencia del
-// dia, aunque fuera manana) el seed podia generar una sesion a menos de 24h y
-// romper esos tests segun el dia de la semana en que se ejecutara. 7 dias deja
-// la sesion holgadamente por encima del corte de 24h y por debajo de la ventana
-// de reserva de 21 dias.
-function proximaFecha(dia: string, minDias: number): string {
-  const objetivo = DIA_A_NUMERO[dia];
-  let fecha = sumarDias(hoyEnEspana(), minDias);
-  while (new Date(`${fecha}T12:00:00Z`).getUTCDay() !== objetivo) {
-    fecha = sumarDias(fecha, 1);
-  }
-  return fecha;
+const FRANJAS: FranjaHoraria[] = [
+  { horaInicio: "07:00", horaFin: "07:50", dias: ["lunes", "martes", "miercoles", "jueves", "viernes"] },
+  { horaInicio: "07:50", horaFin: "08:40", dias: ["lunes", "martes", "miercoles", "jueves", "viernes"] },
+  { horaInicio: "08:40", horaFin: "09:30", dias: ["lunes", "martes", "miercoles", "jueves", "viernes"] },
+  { horaInicio: "09:30", horaFin: "10:20", dias: ["lunes", "martes", "miercoles", "jueves"] },
+  { horaInicio: "13:50", horaFin: "14:40", dias: ["lunes", "miercoles", "viernes"] },
+  { horaInicio: "14:40", horaFin: "15:30", dias: ["lunes", "miercoles", "viernes"] },
+  { horaInicio: "16:00", horaFin: "16:50", dias: ["lunes", "martes", "miercoles", "jueves"] },
+  { horaInicio: "16:50", horaFin: "17:40", dias: ["lunes", "martes", "miercoles", "jueves"] },
+  { horaInicio: "17:40", horaFin: "18:30", dias: ["lunes", "martes", "miercoles", "jueves", "viernes"] },
+  { horaInicio: "18:30", horaFin: "19:20", dias: ["lunes", "martes", "miercoles", "jueves", "viernes"] },
+  { horaInicio: "19:20", horaFin: "20:10", dias: ["lunes", "martes", "miercoles", "jueves"] },
+  { horaInicio: "20:10", horaFin: "21:00", dias: ["lunes", "martes", "miercoles", "jueves"] },
+];
+
+const NUMERO_A_DIA = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+
+function diaDeFecha(fecha: string): string {
+  return NUMERO_A_DIA[new Date(`${fecha}T12:00:00Z`).getUTCDay()];
 }
 
 function fechaRelativaHoy(dias: number): string {
@@ -92,6 +94,9 @@ async function main() {
     idsPorEmail.set(u.email, authUser.user.id);
   }
 
+  const ivanId = idsPorEmail.get("ivan@elefitness.com")!;
+  const elenaId = idsPorEmail.get("elena@elefitness.com")!;
+
   const { data: planMensual, error: errorPlanMensual } = await admin
     .from("planes")
     .insert({ nombre: "Cuota mensual", precio: 45, tipo: "mensual", clases_incluidas: null })
@@ -106,20 +111,45 @@ async function main() {
     .single();
   if (errorPlanBono || !planBono) throw errorPlanBono ?? new Error("No se pudo crear plan bono");
 
-  const ivanId = idsPorEmail.get("ivan@elefitness.com")!;
-  const { data: claseLunes, error: errorClaseLunes } = await admin
-    .from("clases")
-    .insert({ dia: "lunes", hora_inicio: "18:00", hora_fin: "19:00", aforo_max: 5, entrenador_id: ivanId, recurrente: true })
-    .select()
-    .single();
-  if (errorClaseLunes || !claseLunes) throw errorClaseLunes ?? new Error("No se pudo crear clase-lunes");
+  // Genera las 51 clases del horario fijo a partir de FRANJAS x dias.
+  //
+  // PROVISIONAL: el reparto de quien da cada clase lo confirmara Elena mas
+  // adelante -- de momento no hay dato real. Se asigna Ivan a las clases que
+  // empiezan antes de las 16:00 y Elena a las de 16:00 en adelante solo para
+  // que la demo no muestre las 51 clases con el mismo entrenador. No tratar
+  // este criterio como una regla de negocio real.
+  const clasesAInsertar = FRANJAS.flatMap((franja) => {
+    const entrenadorId = franja.horaInicio < "16:00" ? ivanId : elenaId;
+    return franja.dias.map((dia) => ({
+      dia: dia as "lunes" | "martes" | "miercoles" | "jueves" | "viernes",
+      hora_inicio: franja.horaInicio,
+      hora_fin: franja.horaFin,
+      aforo_max: 5,
+      entrenador_id: entrenadorId,
+      recurrente: true,
+    }));
+  });
 
-  const { data: claseMiercoles, error: errorClaseMiercoles } = await admin
+  if (clasesAInsertar.length !== 51) {
+    throw new Error(`Se esperaban 51 clases en el horario fijo, se generaron ${clasesAInsertar.length}`);
+  }
+
+  const { data: clasesCreadas, error: errorClases } = await admin
     .from("clases")
-    .insert({ dia: "miercoles", hora_inicio: "19:00", hora_fin: "20:00", aforo_max: 5, entrenador_id: ivanId, recurrente: true })
-    .select()
-    .single();
-  if (errorClaseMiercoles || !claseMiercoles) throw errorClaseMiercoles ?? new Error("No se pudo crear clase-miercoles");
+    .insert(clasesAInsertar)
+    .select("id, dia, hora_inicio, entrenador_id");
+  if (errorClases || !clasesCreadas) throw errorClases ?? new Error("No se pudieron crear las clases del horario fijo");
+
+  const totalIvan = clasesCreadas.filter((c) => c.entrenador_id === ivanId).length;
+  const totalElena = clasesCreadas.filter((c) => c.entrenador_id === elenaId).length;
+  console.log(`Clases creadas: ${clasesCreadas.length} (Ivan: ${totalIvan}, Elena: ${totalElena})`);
+
+  // dia|horaInicio (HH:MM) -> id de clase, para localizar clases concretas al
+  // generar sesiones y las reservas de ejemplo mas abajo.
+  const claseIdPorClave = new Map<string, string>();
+  for (const c of clasesCreadas) {
+    claseIdPorClave.set(`${c.dia}|${c.hora_inicio.slice(0, 5)}`, c.id);
+  }
 
   const clientesSeed = [
     { email: "maria@example.com", planId: planMensual.id, notas: "Full body 3x/semana, foco en tren inferior. Progresar sentadilla goblet.", diasSemana: 3 },
@@ -153,32 +183,6 @@ async function main() {
   const idDiana = idsClientePorEmail.get("diana@example.com")!;
   const idEva = idsClientePorEmail.get("eva@example.com")!;
 
-  const { data: sesionLunes, error: errorSesionLunes } = await admin
-    .from("sesiones")
-    .insert({ clase_id: claseLunes.id, fecha: proximaFecha("lunes", 7) })
-    .select()
-    .single();
-  if (errorSesionLunes || !sesionLunes) throw errorSesionLunes ?? new Error("No se pudo crear sesion-lunes");
-
-  const { data: sesionMiercoles, error: errorSesionMiercoles } = await admin
-    .from("sesiones")
-    .insert({ clase_id: claseMiercoles.id, fecha: proximaFecha("miercoles", 7) })
-    .select()
-    .single();
-  if (errorSesionMiercoles || !sesionMiercoles) throw errorSesionMiercoles ?? new Error("No se pudo crear sesion-miercoles");
-
-  const { error: errorReservas } = await admin.from("reservas").insert([
-    { sesion_id: sesionLunes.id, cliente_id: idMaria, estado: "confirmada" },
-    { sesion_id: sesionMiercoles.id, cliente_id: idAna, estado: "confirmada" },
-    { sesion_id: sesionMiercoles.id, cliente_id: idBeatriz, estado: "confirmada" },
-    { sesion_id: sesionMiercoles.id, cliente_id: idCarla, estado: "confirmada" },
-    { sesion_id: sesionMiercoles.id, cliente_id: idDiana, estado: "confirmada" },
-    { sesion_id: sesionMiercoles.id, cliente_id: idEva, estado: "confirmada" },
-    { sesion_id: sesionMiercoles.id, cliente_id: idLaura, estado: "lista_espera" },
-  ]);
-  if (errorReservas) throw errorReservas;
-
-  const elenaId = idsPorEmail.get("elena@elefitness.com")!;
   const { error: errorPagos } = await admin.from("pagos").insert([
     { cliente_id: idMaria, plan_id: planMensual.id, tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 45, fecha_pago: "2026-07-01", ultimo_cobro: "2026-07-01", proximo_cobro: "2026-08-01", registrado_por: elenaId },
     { cliente_id: idLaura, plan_id: planBono.id, tipo: "bono", metodo: "efectivo", estado: "al_dia", importe: 80, fecha_pago: "2026-04-02", ultimo_cobro: "2026-04-02", proximo_cobro: null, registrado_por: elenaId },
@@ -208,6 +212,102 @@ async function main() {
     activo: true,
   });
   if (errorBono) throw errorBono;
+
+  // Sesiones: semana actual + 3 semanas siguientes (4 semanas, lunes a
+  // domingo), para que la ventana de reserva de 3 semanas del cliente y las
+  // vistas de semana/mes del calendario tengan contenido real de cara a la
+  // demo. tests/integration/rpc-copiar-semana.test.ts trabaja a 56 dias vista
+  // precisamente para no pisar estas fechas: no alargar este rango sin
+  // revisar ese test.
+  const inicioSemanaActual = inicioDeSemana(hoyEnEspana());
+  const NUM_DIAS_RANGO = 28;
+
+  const sesionesAInsertar: { clase_id: string; fecha: string }[] = [];
+  for (let i = 0; i < NUM_DIAS_RANGO; i++) {
+    const fecha = sumarDias(inicioSemanaActual, i);
+    const dia = diaDeFecha(fecha);
+    for (const franja of FRANJAS) {
+      if (!franja.dias.includes(dia)) continue;
+      const claseId = claseIdPorClave.get(`${dia}|${franja.horaInicio}`)!;
+      sesionesAInsertar.push({ clase_id: claseId, fecha });
+    }
+  }
+
+  const { data: sesionesCreadas, error: errorSesiones } = await admin
+    .from("sesiones")
+    .insert(sesionesAInsertar)
+    .select("id, clase_id, fecha");
+  if (errorSesiones || !sesionesCreadas) throw errorSesiones ?? new Error("No se pudieron crear las sesiones");
+  console.log(`Sesiones creadas: ${sesionesCreadas.length} (4 semanas desde ${inicioSemanaActual})`);
+
+  const claseInfoPorId = new Map(clasesCreadas.map((c) => [c.id, { dia: c.dia, horaInicio: c.hora_inicio.slice(0, 5) }]));
+
+  interface SesionEnriquecida {
+    id: string;
+    fecha: string;
+    dia: string;
+    horaInicio: string;
+  }
+
+  const sesionesEnriquecidas: SesionEnriquecida[] = sesionesCreadas
+    .map((s) => {
+      const info = claseInfoPorId.get(s.clase_id)!;
+      return { id: s.id, fecha: s.fecha, dia: info.dia, horaInicio: info.horaInicio };
+    })
+    .sort((a, b) => (a.fecha === b.fecha ? a.horaInicio.localeCompare(b.horaInicio) : a.fecha.localeCompare(b.fecha)));
+
+  // Fixture deterministico para tests/integration/rpc-authz.test.ts: la
+  // primera sesion (fecha mas temprana) de la clase de lunes 7:00, con una
+  // reserva confirmada de Maria. El test localiza esta clase filtrando por
+  // dia + hora_inicio (no por .single() sobre "dia" a secas, que con 12
+  // clases de lunes lanzaria).
+  const sesionFixtureLunes = sesionesEnriquecidas.find((s) => s.dia === "lunes" && s.horaInicio === "07:00");
+  if (!sesionFixtureLunes) throw new Error("No se genero la sesion de lunes 07:00 usada como fixture de tests");
+
+  // Fixture de variedad: una clase llena (aforo 5) con Laura en lista de
+  // espera, igual que en el seed anterior -- lista_espera no consume credito
+  // de bono, asi que el bono de Laura sembrado arriba queda intacto.
+  const sesionFixtureMiercoles = sesionesEnriquecidas.find((s) => s.dia === "miercoles" && s.horaInicio === "19:20");
+  if (!sesionFixtureMiercoles) throw new Error("No se genero la sesion de miercoles 19:20 usada como fixture de demo");
+
+  const reservasAInsertar: { sesion_id: string; cliente_id: string; estado: "confirmada" | "lista_espera" }[] = [
+    { sesion_id: sesionFixtureLunes.id, cliente_id: idMaria, estado: "confirmada" },
+    { sesion_id: sesionFixtureMiercoles.id, cliente_id: idAna, estado: "confirmada" },
+    { sesion_id: sesionFixtureMiercoles.id, cliente_id: idBeatriz, estado: "confirmada" },
+    { sesion_id: sesionFixtureMiercoles.id, cliente_id: idCarla, estado: "confirmada" },
+    { sesion_id: sesionFixtureMiercoles.id, cliente_id: idDiana, estado: "confirmada" },
+    { sesion_id: sesionFixtureMiercoles.id, cliente_id: idEva, estado: "confirmada" },
+    { sesion_id: sesionFixtureMiercoles.id, cliente_id: idLaura, estado: "lista_espera" },
+  ];
+
+  // Reparto del resto de sesiones para que las vistas de dia/semana/mes del
+  // calendario muestren ocupacion variada (llena, a medias, vacia) en vez de
+  // una sola sesion con contenido. Solo se usan clientas de plan mensual
+  // (Laura, de bono, ya queda cubierta arriba): asi ninguna reserva adicional
+  // consume creditos de bonos_cliente y "planes, pagos y bonos" de las 8
+  // clientas del seed quedan exactamente como estaban. Los niveles se
+  // asignan por indice de forma deterministica -- no es una simulacion real
+  // de demanda, solo variedad visual para la demo.
+  const clientesMensuales = [idMaria, idSara, idAna, idBeatriz, idCarla, idDiana, idEva];
+  const NIVELES_OCUPACION = [2, 5, 3, 4, 1, 5, 2, 3];
+  const sesionesFixture = new Set([sesionFixtureLunes.id, sesionFixtureMiercoles.id]);
+
+  let indice = 0;
+  for (const sesion of sesionesEnriquecidas) {
+    if (sesionesFixture.has(sesion.id)) continue;
+    if (indice % 2 === 0) {
+      const nivel = NIVELES_OCUPACION[(indice / 2) % NIVELES_OCUPACION.length];
+      for (let j = 0; j < nivel; j++) {
+        const clienteId = clientesMensuales[(indice + j) % clientesMensuales.length];
+        reservasAInsertar.push({ sesion_id: sesion.id, cliente_id: clienteId, estado: "confirmada" });
+      }
+    }
+    indice++;
+  }
+
+  const { error: errorReservas } = await admin.from("reservas").insert(reservasAInsertar);
+  if (errorReservas) throw errorReservas;
+  console.log(`Reservas creadas: ${reservasAInsertar.length}`);
 
   console.log("Seed completado.");
   console.log(`Password para las 10 cuentas: ${DEMO_PASSWORD}`);

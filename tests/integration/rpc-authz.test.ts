@@ -10,8 +10,24 @@ describe("Autorizacion de reservar_sesion / cancelar_reserva RPC", () => {
   let mariaReservaId: string;
 
   beforeAll(async () => {
-    const { data: clase } = await admin.from("clases").select("id").eq("dia", "lunes").single();
-    const { data: sesion } = await admin.from("sesiones").select("id").eq("clase_id", clase!.id).limit(1).single();
+    // El horario real tiene 12 clases de lunes, asi que filtrar solo por
+    // "dia" ya no identifica una fila unica: .single() lanzaria. Se filtra
+    // tambien por hora_inicio (lunes 7:00, la clase con la que el seed monta
+    // la reserva confirmada de Maria que usa este fichero) y se ordena la
+    // sesion por fecha para no depender de un orden implicito de la tabla.
+    const { data: clase } = await admin
+      .from("clases")
+      .select("id")
+      .eq("dia", "lunes")
+      .eq("hora_inicio", "07:00:00")
+      .single();
+    const { data: sesion } = await admin
+      .from("sesiones")
+      .select("id")
+      .eq("clase_id", clase!.id)
+      .order("fecha", { ascending: true })
+      .limit(1)
+      .single();
     sesionLunesId = sesion!.id;
 
     async function clienteIdPorEmail(email: string): Promise<string> {

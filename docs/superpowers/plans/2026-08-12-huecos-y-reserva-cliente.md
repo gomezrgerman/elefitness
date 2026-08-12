@@ -117,6 +117,14 @@ create policy "franjas_horarias_entrenador_select" on public.franjas_horarias fo
   using (public.auth_rol() = 'entrenador');
 
 alter table public.sesiones add column abierta boolean not null default true;
+
+-- Restriccion de entrenador por clienta. Ivan lleva sobre todo gente mayor o
+-- con alguna patologia; una clienta asignada a el solo debe ver y poder
+-- reservar sus horas. Se modela como FK nullable en vez de un enum de dos
+-- valores porque el centro puede incorporar mas entrenadores sin cambiar el
+-- esquema. `null` = sin restriccion, ve a todos.
+alter table public.clientes
+  add column entrenador_restringido_id uuid references public.users(id);
 ```
 
 Después, `create or replace` de las dos funciones:
@@ -131,6 +139,22 @@ Después, `create or replace` de las dos funciones:
     raise exception 'Esta sesion no esta abierta para reservas';
   end if;
 ```
+
+Y, más abajo, después de cargar `v_cliente` y comprobar que no está de baja:
+
+```sql
+  -- Si la clienta esta asignada a un entrenador concreto, solo puede reservar
+  -- sus clases. Filtrar solo en la pantalla no bastaria: la RPC es la unica
+  -- frontera real. El admin queda exento, que es como mete a alguien donde
+  -- haga falta.
+  if not v_es_admin
+     and v_cliente.entrenador_restringido_id is not null
+     and v_clase.entrenador_id <> v_cliente.entrenador_restringido_id then
+    raise exception 'Esta clase no es de tu entrenador';
+  end if;
+```
+
+**Cambiar la restriccion de una clienta no cancela sus reservas anteriores** — decision explicita, para que tocar una ficha no le vacie clases sin querer ni le cueste creditos. La guarda solo afecta a reservas nuevas.
 
 **`copiar_semana`** — copiar el cuerpo vivo de `0011` y cambiar el `select` del bucle exterior para excluir las clases no recurrentes:
 
@@ -274,6 +298,17 @@ Un test que demuestre que **una clase no recurrente no se propaga**: crear en la
 Es la regla que el diseño marca como el fallo más fácil de que se cuele: sin ella, un hueco que Elena abrió un martes suelto se repetiría para siempre.
 
 Ese fichero trabaja a +56 días para no chocar con las sesiones del seed (que llegan a +27). Mantenerlo.
+
+- [ ] **Step 2b: Cubrir la restricción de entrenador**
+
+En el mismo fichero nuevo de la Step 1 o en uno aparte, cubrir:
+
+1. Una clienta con `entrenador_restringido_id` puesto **no puede** reservar una clase de otro entrenador; el error menciona que no es de su entrenador.
+2. **Sí puede** reservar una clase de su entrenador.
+3. Una clienta **sin** restricción (`null`) puede reservar clases de cualquiera.
+4. El **admin puede** reservar en nombre de una clienta restringida en una clase de otro entrenador — es la excepción que le permite colocar a alguien donde haga falta.
+
+Restaurar el campo a `null` en `afterAll` si se toca una clienta del seed, o mejor crear la restricción sobre una clienta y deshacerla, para no dejar el seed alterado.
 
 - [ ] **Step 3: Correr la suite dos veces**
 
@@ -425,6 +460,7 @@ git commit -m "feat: cerrar y reabrir una sesion desde la vista de dia"
 En `app/cliente/page.tsx`, además de lo que ya calcula:
 
 - Filtrar fuera las sesiones con `abierta = false` **salvo** que la clienta tenga reserva en ellas. Es la decisión del diseño: ve su reserva, no la hora suelta.
+- Si la clienta tiene `entrenadorRestringidoId`, filtrar fuera las clases de otros entrenadores — con la misma excepción: las sesiones donde ya tiene reserva se siguen viendo, porque cambiarle el entrenador no le cancela lo que ya tenía.
 - Construir la lista de días de la ventana con, por cada uno, si tiene alguna sesión reservable y si la clienta ya tiene reserva ese día. **Un booleano por día, nunca un conteo** — la tira no puede filtrar cuántos huecos quedan.
 
 - [ ] **Step 2: Reescribir el componente**
@@ -461,6 +497,43 @@ git commit -m "feat: la clienta reserva eligiendo dia y luego hora"
 
 ---
 
+### Task 7b: Asignar entrenador desde la ficha de la clienta
+
+**Files:**
+- Modify: `lib/validaciones.ts`
+- Modify: `lib/actions/clientes.ts`
+- Modify: `components/cliente-form.tsx`
+- Modify: `components/ficha-cliente.tsx`
+
+**Interfaces:**
+- Consumes: `clientes.entrenador_restringido_id` (Task 1), `Cliente.entrenadorRestringidoId` (Task 2).
+
+- [ ] **Step 1: Añadir el campo al formulario**
+
+En `components/cliente-form.tsx`, un selector con la lista de usuarios con rol `entrenador` o `admin`, más una opción vacía que significa **sin restricción, ve a todos**. Redactarlo en los términos de Elena: no "restricción", sino algo como "Entrena con" y una opción "Cualquiera".
+
+Ampliar `clienteFormSchema` en `lib/validaciones.ts` y el esquema de `actualizarCliente` para aceptar el campo (uuid o null), y persistirlo en `altaCliente` y `actualizarCliente`.
+
+`altaCliente` ya tiene un patrón de deshacer si un paso posterior falla; no romperlo al añadir el campo.
+
+- [ ] **Step 2: Mostrarlo en la ficha**
+
+En `components/ficha-cliente.tsx`, junto al plan y los días por semana, mostrar con quién entrena, o "Cualquiera" si no tiene restricción.
+
+- [ ] **Step 3: Verificar**
+
+Run: `npx tsc --noEmit && npx eslint app components lib scripts --max-warnings=0 && npm run build && npm run test:integration`
+Expected: todo limpio y la suite verde — `altaCliente` y `actualizarCliente` están cubiertos por los tests de integración.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add lib components
+git commit -m "feat: asignar a una clienta el entrenador con el que entrena"
+```
+
+---
+
 ### Task 8: Repaso manual
 
 **Files:** ninguno — es verificación.
@@ -480,6 +553,8 @@ Con el acceso rápido de `/login`:
 5. Entrar como **esa clienta**: ve su reserva, pero esa hora no está en el listado para reservar.
 6. **Iván → Clases**: ve la rejilla, no puede abrir huecos.
 7. **María**: la tira de días, cambiar de día, reservar, cancelar. Nunca ve un número de plazas.
+8. Asignarle a una clienta el entrenador Iván desde su ficha, y comprobar que en su app solo le salen horas de Iván. Quitarle la restricción y comprobar que vuelve a verlas todas.
+9. Asignarle un entrenador a una clienta **que ya tenga una reserva con el otro**: esa reserva debe seguir ahí, no cancelarse.
 
 - [ ] **Step 3: Anotar lo que falle**
 

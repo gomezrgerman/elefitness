@@ -140,6 +140,17 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
         </div>
       </div>
 
+      {/* El hecho mas sorprendente del boton de copiar (que tambien apunta a
+          gente, no solo crea horas) no puede vivir solo en el title: en
+          movil no hay hover, y en escritorio Elena lo veria recien despues
+          de haberlo hecho. Por eso va como texto siempre visible. */}
+      {puedeAbrir && (
+        <p className="text-xs text-muted-foreground">
+          Copiar la semana tambien apunta a las clientas de cuota mensual que tenian clase esa semana; las de bono
+          reservan ellas.
+        </p>
+      )}
+
       <div className="overflow-x-auto">
         <div className="grid min-w-[640px] grid-cols-[3.5rem_repeat(6,1fr)] gap-1">
           <span />

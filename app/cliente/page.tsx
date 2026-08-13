@@ -133,7 +133,7 @@ export default async function ClientePage() {
                 <p className="text-xs text-muted-foreground">
                   {claseHoy.horaInicio} - {claseHoy.horaFin}
                   {" · "}
-                  {usuarios.find((u) => u.id === claseHoy.entrenadorId)?.nombre ?? "tu entrenador"}
+                  {usuarios.find((u) => u.id === claseHoy.entrenadorId)?.nombre ?? "—"}
                 </p>
               </div>
             </div>
@@ -168,7 +168,12 @@ export default async function ClientePage() {
           clases={clases}
           sesiones={sesionesVisibles}
           reservas={reservas}
-          usuarios={usuarios}
+          // Solo id y nombre cruzan al componente cliente: es lo unico que la
+          // pantalla necesita para mostrar quien da la clase, y esta prop se
+          // serializa entera en el bundle que llega al navegador de la
+          // clienta -- el resto de la fila (email, telefono) no tiene por
+          // que viajar hasta ahi solo porque la consulta del servidor la trae.
+          usuarios={usuarios.map((u) => ({ id: u.id, nombre: u.nombre }))}
         />
       </div>
     </div>

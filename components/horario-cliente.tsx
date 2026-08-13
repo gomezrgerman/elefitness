@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { reservaActivaDeClienteEnSesion, usuarioPorId } from "@/lib/selectors";
+import { reservaActivaDeClienteEnSesion } from "@/lib/selectors";
 import { formatearDiaLargo, formatearDiaCorto, numeroDeDia, instanteEnEspana } from "@/lib/fechas";
 import { BadgeEstado } from "./badge-estado";
 import { reservarSesion, cancelarReserva } from "@/lib/actions/reservas";
@@ -34,7 +34,11 @@ interface Props {
   clases: Clase[];
   sesiones: Sesion[];
   reservas: Reserva[];
-  usuarios: Usuario[];
+  // Solo el nombre: el resto de la fila de Usuario (email, telefono) no hace
+  // falta para mostrar quien da la clase, y esta prop cruza a un componente
+  // cliente -- lo que no se le pasa no puede acabar en el bundle que llega
+  // al navegador de la clienta.
+  usuarios: Pick<Usuario, "id" | "nombre">[];
 }
 
 export function HorarioCliente({
@@ -169,7 +173,7 @@ export function HorarioCliente({
           delDia.map(({ sesion, clase }, idx) => {
             const hayHueco = sesionesLibres[sesion.id] ?? false;
             const miReserva = reservaActivaDeClienteEnSesion(reservas, clienteId, sesion.id);
-            const entrenador = usuarioPorId(usuarios, clase.entrenadorId);
+            const entrenador = usuarios.find((u) => u.id === clase.entrenadorId);
 
             return (
               <Card
@@ -199,9 +203,9 @@ export function HorarioCliente({
                     confirmandoCancelar === miReserva.id ? (
                       <div className="flex flex-col gap-2 rounded-md bg-muted p-2">
                         <p className="text-xs">
-                          Esta hora esta cerrada: si cancelas no podras volver a reservarla tu sola, tendras que
-                          hablar con Elena. El credito no se pierde si cancelas con mas de 24h de antelacion, pero
-                          si la plaza.
+                          Esta hora esta cerrada: si cancelas, pierdes la plaza y no podras volver a reservarla tu
+                          sola, tendras que hablar con Elena. El credito de recuperacion, si te corresponde,
+                          depende de tu plan y de cuantas ya hayas usado este mes.
                         </p>
                         <div className="flex gap-2">
                           <Button

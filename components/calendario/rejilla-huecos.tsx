@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { PlusIcon } from "lucide-react";
+import { useState, useTransition } from "react";
+import { PlusIcon, CopyIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usuarioPorId } from "@/lib/selectors";
 import { diasDeSemana, formatearDiaCorto, formatearMes, inicioDeSemana, mismoMes, numeroDeDia, sumarDias } from "@/lib/fechas";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
+import { copiarSemana } from "@/lib/actions/horarios";
 import { AbrirHuecoDialogo } from "./abrir-hueco-dialogo";
 import type { Clase, Sesion, FranjaHoraria, Usuario, DiaSemana } from "@/lib/types";
 
@@ -55,6 +57,8 @@ function etiquetaSemanaLaboral(fechasDeLaSemana: string[]): string {
 export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeAbrir }: Props) {
   const [fecha, setFecha] = useState(hoy);
   const [celda, setCelda] = useState<CeldaSeleccionada | null>(null);
+  const [copiando, startTransition] = useTransition();
+  const { toast } = useToast();
 
   const fechasDeLaSemana = diasDeSemana(fecha).slice(0, 6);
 
@@ -67,6 +71,31 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
   function irASemanaAnterior() {
     if (semanaMasAntiguaVisible) return;
     setFecha(sumarDias(fecha, -7));
+  }
+
+  // fechasDeLaSemana[0] ya es inicioDeSemana(fecha) (diasDeSemana lo calcula
+  // asi internamente), y sumarDias(x, 7) siempre cae 7 dias despues: el
+  // desfase que copiar_semana exige (multiplo positivo de 7) queda
+  // garantizado sin volver a derivar fechas.
+  function copiarSemanaSiguiente() {
+    const origen = fechasDeLaSemana[0];
+    const destino = sumarDias(origen, 7);
+    startTransition(async () => {
+      const respuesta = await copiarSemana(origen, destino);
+      if (respuesta.error) {
+        toast(respuesta.error, "error");
+        return;
+      }
+      const creadas = respuesta.sesionesCreadas ?? 0;
+      if (creadas === 0) {
+        toast("La semana siguiente ya estaba copiada: no se creo nada nuevo.", "info");
+      } else {
+        toast(
+          `Semana siguiente copiada: ${creadas} sesion${creadas === 1 ? "" : "es"} creada${creadas === 1 ? "" : "s"}, con las clientas de cuota mensual ya apuntadas. Las de bono deben reservar ellas.`,
+          "success"
+        );
+      }
+    });
   }
 
   return (
@@ -96,6 +125,18 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
           <Button variant="outline" size="sm" onClick={() => setFecha(sumarDias(fecha, 7))} aria-label="Semana siguiente">
             →
           </Button>
+          {puedeAbrir && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={copiarSemanaSiguiente}
+              disabled={copiando}
+              title="Copia las sesiones de esta semana a la siguiente y reserva plaza a las clientas de cuota mensual que estaban esta semana. Las de bono reservan ellas mismas. Repetirlo no duplica nada."
+            >
+              <CopyIcon className="size-3.5" />
+              {copiando ? "Copiando..." : "Copiar a la semana siguiente"}
+            </Button>
+          )}
         </div>
       </div>
 

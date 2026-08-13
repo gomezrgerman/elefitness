@@ -16,6 +16,8 @@ export const clienteFormSchema = z.object({
     .min(1, "Minimo 1 dia por semana")
     .max(7, "Maximo 7 dias por semana")
     .default(1),
+  // null = entrena con cualquiera (caso comun, sin restriccion de agenda).
+  entrenadorRestringidoId: z.string().uuid("Entrenador invalido").nullable().default(null),
 });
 
 export type ClienteFormValues = z.infer<typeof clienteFormSchema>;

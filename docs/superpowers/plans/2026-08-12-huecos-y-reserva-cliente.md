@@ -567,6 +567,42 @@ git commit -m "feat: asignar a una clienta el entrenador con el que entrena"
 
 ---
 
+### Task 7c: Reconciliar el visual de la pantalla de reserva con el rediseño paralelo
+
+**Contexto:** en paralelo a la Task 7, German construyó (fuera de esta rama, directamente en el checkout principal, sin commitear) otra versión de esta misma pantalla — `components/reserva-cliente.tsx` — con un calendario de mes completo. Ese patrón ya se había descartado explícitamente en el diseño (`docs/superpowers/specs/2026-08-12-huecos-y-reserva-cliente-design.md`, sección 4: "demasiado peso visual para una ventana de tres semanas"), y esa versión no tiene las reglas de sesión cerrada, restricción de entrenador ni el aviso de cancelación que se añadieron después. Decisión de German (2026-08-13): se queda la estructura de `components/horario-cliente.tsx` (tira de días + horas, con todas las reglas de negocio ya revisadas), pero adopta el lenguaje visual de `reserva-cliente.tsx` — colores, animaciones y el patrón de calendario oculto tras un botón.
+
+**Files:**
+- Modify: `components/horario-cliente.tsx`
+- Reference (no modificar, no forma parte de esta rama, solo para copiar estilo): `components/reserva-cliente.tsx` en el checkout principal, ruta absoluta `C:\Users\germa\Desktop\German dia a dia\Antigravity\Elefitness\components\reserva-cliente.tsx`
+
+**Interfaces:** ninguna nueva — mismos props, misma firma. Cambia el interior del JSX, no la interfaz con `app/cliente/page.tsx`.
+
+- [ ] **Step 1: Ocultar la tira de días y las horas detrás de un botón**
+
+Igual que `reserva-cliente.tsx`: la tira de días y la lista de horas empiezan colapsadas. Un botón encima, con `CalendarIcon` de `lucide-react`, texto "Reservar clase aquí" / "Ocultar calendario" según el estado, `aria-expanded` y `aria-controls="panel-reserva"` sobre el contenedor. El cálculo de `diaSeleccionado` (que ya es una función pura de la prop `dias` del servidor, para no desajustar la hidratación) no cambia — sigue calculándose igual, solo cambia si se pinta o no.
+
+- [ ] **Step 2: Adoptar el color y la animación de `reserva-cliente.tsx`**
+
+En las tarjetas de hora: si la clienta ya tiene reserva ahí, se mantiene el tratamiento actual (`border-primary/30 bg-primary/5` — verla destacada como "la mía" es más útil que el semáforo). Si no es su reserva, aplicar el mismo lenguaje que `reserva-cliente.tsx` usa para Libre/Completo: `border-emerald-500/40 bg-emerald-500/10` cuando hay hueco, `border-red-500/40 bg-red-500/10` cuando está completo. Mantener las animaciones que ya existen (`animate-stagger-N`, `fade-in-up` con `var(--ease-spring)`) — son las mismas que ya usa `reserva-cliente.tsx`, no hace falta tocarlas.
+
+La tira de días arriba (apagado/activo por `tieneHueco`, punto por `tieneReserva`) ya se revisó sin hallazgos — no forzar ahí el verde/rojo por día del calendario de mes; son dos problemas visuales distintos (un día completo del calendario de mes vs. una tira que ya distingue "hay algo que mirar" de "no hay nada").
+
+No cambiar ningún texto de negocio existente (los labels "Reservar", "Unirse a lista de espera", el aviso de cancelación de sesión cerrada) — esto es una tarea visual, no de copy.
+
+- [ ] **Step 3: Verificar**
+
+Run: `npx tsc --noEmit && npx eslint app components lib scripts --max-warnings=0 && npm run build`
+Expected: todo limpio. No hace falta repetir `npm run test:integration` — no se toca ningún server action ni lógica de datos, solo JSX/clases.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add components/horario-cliente.tsx
+git commit -m "style: adoptar el lenguaje visual de reserva-cliente.tsx en la pantalla de reserva"
+```
+
+---
+
 ### Task 8: Repaso manual
 
 **Files:** ninguno — es verificación.

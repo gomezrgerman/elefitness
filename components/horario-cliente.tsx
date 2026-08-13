@@ -205,7 +205,8 @@ export function HorarioCliente({
                         <p className="text-xs">
                           Esta hora esta cerrada: si cancelas, pierdes la plaza y no podras volver a reservarla tu
                           sola, tendras que hablar con Elena. El credito de recuperacion, si te corresponde,
-                          depende de tu plan y de cuantas ya hayas usado este mes.
+                          depende de tu plan, de cancelar con mas de 24h de antelacion y de cuantas ya hayas
+                          usado este mes.
                         </p>
                         <div className="flex gap-2">
                           <Button

@@ -446,6 +446,39 @@ git commit -m "feat: cerrar y reabrir una sesion desde la vista de dia"
 
 ---
 
+### Task 6b: Botón de copiar la semana
+
+**Files:**
+- Modify: `components/calendario/rejilla-huecos.tsx`
+
+**Interfaces:**
+- Consumes: `copiarSemana(fechaOrigen, fechaDestino)` de `lib/actions/horarios.ts`, que ya existe y está probada.
+
+**Por qué esta tarea existe:** las clases del horario fijo son la plantilla; lo que una clienta reserva son las **sesiones**, que hay que generar. Hoy solo existen porque el seed creó cuatro semanas. Pasadas esas, el calendario se vaciaría y Elena no tendría forma de arreglarlo desde la app — `copiar_semana` funciona pero no tiene botón. Sin esto la aplicación no se sostiene sola.
+
+- [ ] **Step 1: Añadir el botón**
+
+En la cabecera de la rejilla, junto a la navegación de semana, un botón que copie la semana mostrada a la siguiente. Llama a `copiarSemana(primerDiaDeLaSemanaMostrada, esaFecha + 7)`.
+
+**Decir en la interfaz lo que realmente hace**, porque no es solo "crear huecos vacíos": copia las sesiones **y apunta a las clientas de cuota mensual** que estaban en la semana origen. Las de bono reservan ellas. Elena tiene que saber que va a colocar gente, no solo horas.
+
+Es una acción segura de repetir: la RPC usa `on conflict do nothing`, así que copiar dos veces no duplica nada. Aun así, mostrar el resultado — `sesionesCreadas` viene en la respuesta — para que Elena sepa si hizo algo o si esa semana ya estaba.
+
+Usar el `toast` que ya existe (`components/ui/toast.tsx`, como en `lista-clientes.tsx`) para el resultado, y el `useTransition` que el componente ya usa.
+
+- [ ] **Step 2: Verificar**
+
+Run: `npx tsc --noEmit && npx eslint app components lib scripts --max-warnings=0 && npm run build`
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add components/calendario/rejilla-huecos.tsx
+git commit -m "feat: boton para copiar la semana mostrada a la siguiente"
+```
+
+---
+
 ### Task 7: Nueva pantalla de reserva de la clienta
 
 **Files:**

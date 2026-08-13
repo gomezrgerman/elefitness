@@ -73,6 +73,18 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
     setFecha(sumarDias(fecha, -7));
   }
 
+  // copiar_semana solo copia sesiones de clases recurrentes (el horario
+  // fijo); las puntuales las ignora. Si la semana mostrada no tiene ninguna
+  // sesion fija, la copia siempre va a crear cero — no porque el destino ya
+  // estuviera copiado, sino porque el origen no tiene nada que copiar. Sin
+  // esta distincion, navegar mas alla de las semanas que sembro el seed (sin
+  // limite superior) haria que "cero creadas" se leyera como "la semana
+  // siguiente ya existe" cuando en realidad ninguna de las dos existe: justo
+  // el calendario vacio y silencioso que este boton se anadio para evitar.
+  const semanaOrigenTieneSesionesFijas = fechasDeLaSemana.some((f) =>
+    sesiones.some((s) => s.fecha === f && clases.find((c) => c.id === s.claseId)?.recurrente)
+  );
+
   // fechasDeLaSemana[0] ya es inicioDeSemana(fecha) (diasDeSemana lo calcula
   // asi internamente), y sumarDias(x, 7) siempre cae 7 dias despues: el
   // desfase que copiar_semana exige (multiplo positivo de 7) queda
@@ -111,7 +123,7 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
             {puedeAbrir ? "Toca un hueco en gris para abrirlo." : "Vista de solo lectura."}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -130,11 +142,11 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
               variant="secondary"
               size="sm"
               onClick={copiarSemanaSiguiente}
-              disabled={copiando}
-              title="Copia las sesiones de esta semana a la siguiente y reserva plaza a las clientas de cuota mensual que estaban esta semana. Las de bono reservan ellas mismas. Repetirlo no duplica nada."
+              disabled={copiando || !semanaOrigenTieneSesionesFijas}
+              title="Copia el horario fijo de esta semana a la siguiente (las clases puntuales no se copian) y reserva plaza a las clientas de cuota mensual que estaban esta semana. Las de bono reservan ellas mismas. Repetirlo no duplica nada."
             >
               <CopyIcon className="size-3.5" />
-              {copiando ? "Copiando..." : "Copiar a la semana siguiente"}
+              {copiando ? "Copiando..." : "Copiar semana"}
             </Button>
           )}
         </div>
@@ -143,11 +155,13 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
       {/* El hecho mas sorprendente del boton de copiar (que tambien apunta a
           gente, no solo crea horas) no puede vivir solo en el title: en
           movil no hay hover, y en escritorio Elena lo veria recien despues
-          de haberlo hecho. Por eso va como texto siempre visible. */}
+          de haberlo hecho. Por eso va como texto siempre visible, junto con
+          que las clases puntuales quedan fuera de la copia. */}
       {puedeAbrir && (
         <p className="text-xs text-muted-foreground">
-          Copiar la semana tambien apunta a las clientas de cuota mensual que tenian clase esa semana; las de bono
-          reservan ellas.
+          {semanaOrigenTieneSesionesFijas
+            ? "Copiar la semana tambien apunta a las clientas de cuota mensual que tenian clase esa semana (las de bono reservan ellas); solo copia el horario fijo, las clases puntuales no se copian."
+            : "Esta semana no tiene sesiones fijas: no hay nada que copiar a la siguiente."}
         </p>
       )}
 

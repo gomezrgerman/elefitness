@@ -39,6 +39,8 @@ export interface Cliente {
   notasRutina: string;
   diasSemanaHabituales: number;
   deudaCreditos: number;
+  // null = sin restriccion, la clienta ve las clases de cualquier entrenador.
+  entrenadorRestringidoId: string | null;
   createdAt: string;
 }
 

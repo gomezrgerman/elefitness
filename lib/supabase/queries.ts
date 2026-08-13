@@ -5,7 +5,9 @@ export async function obtenerClientes(): Promise<Cliente[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("clientes")
-    .select("id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, created_at");
+    .select(
+      "id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, entrenador_restringido_id, created_at"
+    );
   if (error) throw error;
   return (data ?? []).map((c) => ({
     id: c.id,
@@ -15,6 +17,7 @@ export async function obtenerClientes(): Promise<Cliente[]> {
     notasRutina: c.notas_rutina,
     diasSemanaHabituales: c.dias_semana_habituales,
     deudaCreditos: c.deuda_creditos,
+    entrenadorRestringidoId: c.entrenador_restringido_id,
     createdAt: c.created_at,
   }));
 }
@@ -23,7 +26,9 @@ export async function obtenerClienteDeUsuario(usuarioId: string): Promise<Client
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("clientes")
-    .select("id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, created_at")
+    .select(
+      "id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, entrenador_restringido_id, created_at"
+    )
     .eq("usuario_id", usuarioId)
     .maybeSingle();
   if (error) throw error;
@@ -36,6 +41,7 @@ export async function obtenerClienteDeUsuario(usuarioId: string): Promise<Client
     notasRutina: data.notas_rutina,
     diasSemanaHabituales: data.dias_semana_habituales,
     deudaCreditos: data.deuda_creditos,
+    entrenadorRestringidoId: data.entrenador_restringido_id,
     createdAt: data.created_at,
   };
 }

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { HorarioCliente } from "@/components/horario-cliente";
+import { HorarioCliente, type DiaDisponibilidad } from "@/components/horario-cliente";
 import { MiPlan } from "@/components/mi-plan";
 import { Card, CardContent } from "@/components/ui/card";
 import { BadgeEstado } from "@/components/badge-estado";
@@ -18,6 +18,7 @@ import {
 } from "@/lib/supabase/queries";
 import { usuarioPorId, reservaActivaDeClienteEnSesion } from "@/lib/selectors";
 import { sumarDias, hoyEnEspana, instanteEnEspana } from "@/lib/fechas";
+import type { Sesion, Clase } from "@/lib/types";
 
 export default async function ClientePage() {
   const supabase = await createClient();
@@ -42,15 +43,59 @@ export default async function ClientePage() {
   const usuario = usuarioPorId(usuarios, user.id);
   if (!usuario) redirect("/login");
 
-  // El conteo exacto se resuelve aqui y nunca llega al navegador de la clienta.
   const hoy = hoyEnEspana();
   const limite = sumarDias(hoy, 21);
+  const ahora = new Date();
+
+  // TS no propaga el `if (!cliente) redirect(...)` de arriba dentro de las
+  // funciones anidadas de aqui abajo; se capturan en constantes ya no-nulas
+  // en vez de repetir la comprobacion o usar `!`.
+  const clienteId = cliente.id;
+  const entrenadorRestringidoId = cliente.entrenadorRestringidoId;
+
+  // Una sesion cerrada no aparece en el listado de reserva de nadie, salvo
+  // que la clienta ya tenga una reserva activa ahi: ve su propia plaza, no la
+  // hora suelta que Elena no ha abierto. Igual con el entrenador restringido
+  // -- cambiarle la restriccion no le cancela lo que ya tenia reservado.
+  function reservablePorCualquiera(sesion: Sesion, clase: Clase): boolean {
+    if (!sesion.abierta) return false;
+    if (entrenadorRestringidoId && clase.entrenadorId !== entrenadorRestringidoId) return false;
+    return true;
+  }
+  function sesionVisibleParaClienta(sesion: Sesion, clase: Clase): boolean {
+    if (reservablePorCualquiera(sesion, clase)) return true;
+    return Boolean(reservaActivaDeClienteEnSesion(reservas, clienteId, sesion.id));
+  }
+  const sesionesVisibles = sesiones.filter((s) => {
+    const clase = clases.find((c) => c.id === s.claseId);
+    return clase ? sesionVisibleParaClienta(s, clase) : false;
+  });
+
+  // El conteo exacto se resuelve aqui y nunca llega al navegador de la clienta.
   const sesionesLibres: Record<string, boolean> = {};
-  for (const sesion of sesiones) {
+  for (const sesion of sesionesVisibles) {
     const clase = clases.find((c) => c.id === sesion.claseId);
     if (!clase) continue;
     const aforo = sesion.aforoEfectivo ?? clase.aforoMax;
     sesionesLibres[sesion.id] = (ocupacion[sesion.id] ?? 0) < aforo;
+  }
+
+  // La tira de dias solo recibe booleanos, nunca un conteo: si hay alguna
+  // sesion que cualquiera podria intentar reservar ese dia (aunque este
+  // completa y solo entre en lista de espera), y si la clienta ya tiene
+  // reserva ese dia -- esto ultimo mira las reservas reales, no
+  // sesionesVisibles, para que su propia plaza en una sesion cerrada siga
+  // marcando el dia aunque no cuente como "hueco".
+  const dias: DiaDisponibilidad[] = [];
+  for (let fecha = hoy; fecha <= limite; fecha = sumarDias(fecha, 1)) {
+    const sesionesDelDia = sesiones.filter((s) => s.fecha === fecha);
+    const tieneHueco = sesionesDelDia.some((s) => {
+      const clase = clases.find((c) => c.id === s.claseId);
+      if (!clase || !reservablePorCualquiera(s, clase)) return false;
+      return instanteEnEspana(s.fecha, clase.horaInicio) > ahora;
+    });
+    const tieneReserva = sesionesDelDia.some((s) => Boolean(reservaActivaDeClienteEnSesion(reservas, cliente.id, s.id)));
+    dias.push({ fecha, tieneHueco, tieneReserva });
   }
 
   // La tarjeta "Tienes clase hoy" solo debe desaparecer cuando la clase ya ha
@@ -59,7 +104,6 @@ export default async function ClientePage() {
   // Comparar solo por fecha (sin instanteEnEspana) dejaba la tarjeta anunciando
   // una clase de las 09:00 a las 21:00, el mismo bug que ya se corrigio en
   // horario-cliente.tsx.
-  const ahora = new Date();
   const sesionesHoy = sesiones.filter((s) => s.fecha === hoy);
   const reservaHoy = sesionesHoy.find((s) => {
     const r = reservaActivaDeClienteEnSesion(reservas, cliente.id, s.id);
@@ -119,10 +163,12 @@ export default async function ClientePage() {
           clienteId={cliente.id}
           hoy={hoy}
           limite={limite}
+          dias={dias}
           sesionesLibres={sesionesLibres}
           clases={clases}
-          sesiones={sesiones}
+          sesiones={sesionesVisibles}
           reservas={reservas}
+          usuarios={usuarios}
         />
       </div>
     </div>

@@ -186,7 +186,7 @@ export function HorarioCliente({
                     {clase.horaInicio} - {clase.horaFin}
                   </CardTitle>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm text-muted-foreground">{entrenador?.nombre ?? "Por confirmar"}</p>
+                    <p className="text-sm text-muted-foreground">{entrenador?.nombre ?? "—"}</p>
                     {!miReserva && (
                       <span className={cn("text-xs font-medium shrink-0", hayHueco ? "text-primary" : "text-red-600")}>
                         {hayHueco ? "Libre" : "Completo"}

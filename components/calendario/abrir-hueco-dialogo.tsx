@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { CheckIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,13 +77,15 @@ export function AbrirHuecoDialogo({ dia, fecha, horaInicio, horaFin, usuarios, o
           <div className="flex flex-col gap-2">
             <button
               type="button"
+              aria-pressed={!recurrente}
               onClick={() => setRecurrente(false)}
               className={cn(
                 "flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors",
                 !recurrente ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "border-input hover:bg-muted"
               )}
             >
-              <span className="text-sm font-medium">
+              <span className="flex items-center gap-1.5 text-sm font-medium">
+                <CheckIcon className={cn("size-4 shrink-0 text-primary", !recurrente ? "opacity-100" : "opacity-0")} />
                 Solo el {dia} {numeroDeDia(fecha)}
               </span>
               <span className="text-xs text-muted-foreground">
@@ -91,15 +94,19 @@ export function AbrirHuecoDialogo({ dia, fecha, horaInicio, horaFin, usuarios, o
             </button>
             <button
               type="button"
+              aria-pressed={recurrente}
               onClick={() => setRecurrente(true)}
               className={cn(
                 "flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors",
                 recurrente ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "border-input hover:bg-muted"
               )}
             >
-              <span className="text-sm font-medium">Todos los {dia}, a partir de ahora</span>
+              <span className="flex items-center gap-1.5 text-sm font-medium">
+                <CheckIcon className={cn("size-4 shrink-0 text-primary", recurrente ? "opacity-100" : "opacity-0")} />
+                Todos los {dia}, a partir de ahora
+              </span>
               <span className="text-xs text-muted-foreground">
-                Se anade al horario fijo. Se repite cada semana hasta que lo cambies.
+                Se suma al horario fijo y pasa a las semanas siguientes al copiar el horario.
               </span>
             </button>
           </div>
@@ -135,7 +142,7 @@ export function AbrirHuecoDialogo({ dia, fecha, horaInicio, horaFin, usuarios, o
             Cancelar
           </Button>
           <Button onClick={confirmar} disabled={pendiente}>
-            {recurrente ? "Anadir al horario fijo" : "Abrir solo este dia"}
+            {recurrente ? "Sumar al horario fijo" : "Abrir solo este dia"}
           </Button>
         </DialogFooter>
       </DialogContent>

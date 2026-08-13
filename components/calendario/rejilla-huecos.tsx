@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PlusIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usuarioPorId } from "@/lib/selectors";
-import { diasDeSemana, formatearDiaCorto, formatearRangoSemana, numeroDeDia, sumarDias } from "@/lib/fechas";
+import { diasDeSemana, formatearDiaCorto, formatearMes, inicioDeSemana, mismoMes, numeroDeDia, sumarDias } from "@/lib/fechas";
 import { Button } from "@/components/ui/button";
 import { AbrirHuecoDialogo } from "./abrir-hueco-dialogo";
 import type { Clase, Sesion, FranjaHoraria, Usuario, DiaSemana } from "@/lib/types";
@@ -38,26 +38,61 @@ const ESTILO_HUECO_ABRIBLE =
   "bg-muted/60 text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground hover:ring-1 hover:ring-primary/30";
 const ESTILO_HUECO_CERRADO = "bg-muted/40 text-muted-foreground/40";
 
+// formatearRangoSemana (lib/fechas.ts) da un rango de lunes a domingo; esta
+// rejilla solo pinta hasta el sabado, asi que reusarla diria un dia de mas.
+// Se compone a mano con las mismas piezas exportadas (numeroDeDia,
+// formatearMes, mismoMes) en vez de tocar fechas.ts para un caso tan
+// especifico de esta pantalla.
+function etiquetaSemanaLaboral(fechasDeLaSemana: string[]): string {
+  const lunes = fechasDeLaSemana[0];
+  const sabado = fechasDeLaSemana[5];
+  if (mismoMes(lunes, sabado)) {
+    return `${numeroDeDia(lunes)} - ${numeroDeDia(sabado)} ${formatearMes(sabado)}`;
+  }
+  return `${numeroDeDia(lunes)} ${formatearMes(lunes)} - ${numeroDeDia(sabado)} ${formatearMes(sabado)}`;
+}
+
 export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeAbrir }: Props) {
   const [fecha, setFecha] = useState(hoy);
   const [celda, setCelda] = useState<CeldaSeleccionada | null>(null);
 
   const fechasDeLaSemana = diasDeSemana(fecha).slice(0, 6);
 
+  // No tiene sentido dejar abrir (ni siquiera navegar a mirar) una semana que
+  // ya paso: un hueco no se puede borrar ni editar una vez creado, asi que
+  // abrir uno en el pasado dejaria una clase fantasma sin forma de deshacerla
+  // desde la UI.
+  const semanaMasAntiguaVisible = inicioDeSemana(fecha) <= inicioDeSemana(hoy);
+
+  function irASemanaAnterior() {
+    if (semanaMasAntiguaVisible) return;
+    setFecha(sumarDias(fecha, -7));
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="font-medium">Horario del centro</h3>
+          <h3 className="font-medium">Horario fijo del centro</h3>
+          <p className="text-xs text-muted-foreground">
+            Es la plantilla del horario fijo, no las reservas de esta semana — eso lo muestra el calendario de arriba. La
+            semana elegida aqui solo decide en que fecha se abriria un hueco.
+          </p>
           <p className="text-xs text-muted-foreground">
             {puedeAbrir ? "Toca un hueco en gris para abrirlo." : "Vista de solo lectura."}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setFecha(sumarDias(fecha, -7))} aria-label="Semana anterior">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={irASemanaAnterior}
+            disabled={semanaMasAntiguaVisible}
+            aria-label="Semana anterior"
+          >
             ←
           </Button>
-          <span className="text-sm text-muted-foreground">{formatearRangoSemana(fecha)}</span>
+          <span className="text-sm text-muted-foreground">{etiquetaSemanaLaboral(fechasDeLaSemana)}</span>
           <Button variant="outline" size="sm" onClick={() => setFecha(sumarDias(fecha, 7))} aria-label="Semana siguiente">
             →
           </Button>
@@ -123,7 +158,10 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
                   );
                 }
 
-                if (puedeAbrir) {
+                // Un dia ya pasado no se puede abrir: la clase quedaria en el
+                // horario sin sesion util, y no hay forma de deshacerla desde
+                // la UI.
+                if (puedeAbrir && fechaDia >= hoy) {
                   return (
                     <button
                       key={dia}

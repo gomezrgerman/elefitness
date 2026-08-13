@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { BadgeEstado } from "@/components/badge-estado";
 import {
   reservasConfirmadasDeSesion,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/selectors";
 import { marcarAsistencia } from "@/lib/actions/asistencia";
 import { cancelarReserva } from "@/lib/actions/reservas";
+import { cerrarSesion, reabrirSesion } from "@/lib/actions/sesiones";
 import { formatearDiaLargo, instanteEnEspana } from "@/lib/fechas";
 import { cn } from "@/lib/utils";
 import { colorBarraOcupacion } from "./color-ocupacion";
@@ -74,6 +76,14 @@ export function VistaDia({
     });
   }
 
+  function alternarApertura(sesionId: string, abiertaActualmente: boolean) {
+    setError(null);
+    startTransition(async () => {
+      const respuesta = abiertaActualmente ? await cerrarSesion(sesionId) : await reabrirSesion(sesionId);
+      if (respuesta.error) setError(respuesta.error);
+    });
+  }
+
   if (sesionesDelDia.length === 0) {
     return (
       <div className="flex flex-col gap-4">
@@ -104,11 +114,40 @@ export function VistaDia({
             style={{ animation: "fade-in-up 0.5s var(--ease-spring) forwards" }}
           >
             <CardHeader>
-              <CardTitle className="text-base">
-                {clase.horaInicio} - {clase.horaFin}
-              </CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-base">
+                  {clase.horaInicio} - {clase.horaFin}
+                </CardTitle>
+                {puedeQuitar && (
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={
+                        sesion.abierta
+                          ? "bg-emerald-950/50 text-emerald-300 border-emerald-800/60"
+                          : "bg-zinc-800/60 text-zinc-400 border-zinc-700/60"
+                      }
+                    >
+                      {sesion.abierta ? "Abierta" : "Cerrada"}
+                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={pendiente}
+                      onClick={() => alternarApertura(sesion.id, sesion.abierta)}
+                    >
+                      {sesion.abierta ? "Cerrar" : "Reabrir"}
+                    </Button>
+                  </div>
+                )}
+              </div>
               <div className="flex flex-col gap-1.5">
                 <p className="text-sm text-muted-foreground">{entrenador?.nombre ?? "—"}</p>
+                {puedeQuitar && !sesion.abierta && (
+                  <p className="text-xs text-muted-foreground">
+                    Cerrada: nadie nuevo puede reservar. Quien ya tiene plaza la conserva.
+                  </p>
+                )}
                 <div className="flex items-center gap-2">
                   <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
                     <div

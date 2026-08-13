@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { CalendarIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -67,6 +68,11 @@ export function HorarioCliente({
   // antes.
   const [confirmandoCancelar, setConfirmandoCancelar] = useState<string | null>(null);
   const { toast } = useToast();
+  // El calendario arranca plegado, igual que reserva-cliente.tsx: no se
+  // pinta la tira de dias ni la lista de horas hasta que la clienta pulsa el
+  // boton. No afecta al calculo de diaSeleccionado de arriba, que sigue
+  // siendo el mismo con independencia de si se pinta o no.
+  const [abierto, setAbierto] = useState(false);
 
   function reservar(sesionId: string) {
     setError(null);
@@ -130,122 +136,143 @@ export function HorarioCliente({
 
   return (
     <div className="flex flex-col gap-4">
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <Button
+        variant={abierto ? "outline" : "default"}
+        className="w-full sm:w-auto"
+        aria-expanded={abierto}
+        aria-controls="panel-reserva"
+        onClick={() => setAbierto(!abierto)}
+      >
+        <CalendarIcon aria-hidden="true" />
+        {abierto ? "Ocultar calendario" : "Reservar clase aquí"}
+      </Button>
 
-      {/* Tira de dias: deslizable con el pulgar, de hoy al final de la
-          ventana de tres semanas. Los dias sin ninguna sesion reservable se
-          ven apagados; los que ya tienen su reserva llevan un punto. Ninguno
-          se desactiva: un dia apagado puede seguir teniendo su propia
-          reserva (cerrada) que necesita poder cancelar. */}
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-        {dias.map((dia) => {
-          const seleccionado = dia.fecha === diaSeleccionado;
-          return (
-            <button
-              key={dia.fecha}
-              type="button"
-              onClick={() => setDiaSeleccionado(dia.fecha)}
-              aria-pressed={seleccionado}
-              className={cn(
-                "relative flex shrink-0 flex-col items-center gap-0.5 rounded-lg border px-3 py-2 text-sm transition-colors",
-                seleccionado
-                  ? "border-primary bg-primary/10 text-foreground ring-1 ring-primary/30"
-                  : dia.tieneHueco
-                    ? "border-input text-foreground hover:bg-muted"
-                    : "border-transparent text-muted-foreground/50"
-              )}
-            >
-              <span className="text-[0.65rem] uppercase tracking-wide">{formatearDiaCorto(dia.fecha)}</span>
-              <span className="text-base font-semibold tabular-nums">{numeroDeDia(dia.fecha)}</span>
-              {dia.tieneReserva && <span className="absolute top-1 right-1 size-1.5 rounded-full bg-primary" aria-hidden />}
-            </button>
-          );
-        })}
-      </div>
+      {abierto && (
+        <div id="panel-reserva" className="flex flex-col gap-4">
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {/* Horas del dia elegido. */}
-      <div className="flex flex-col gap-3">
-        <p className="text-sm font-medium text-muted-foreground">{formatearDiaLargo(diaSeleccionado)}</p>
-
-        {delDia.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No hay clases disponibles este dia.</p>
-        ) : (
-          delDia.map(({ sesion, clase }, idx) => {
-            const hayHueco = sesionesLibres[sesion.id] ?? false;
-            const miReserva = reservaActivaDeClienteEnSesion(reservas, clienteId, sesion.id);
-            const entrenador = usuarios.find((u) => u.id === clase.entrenadorId);
-
-            return (
-              <Card
-                key={sesion.id}
-                className={cn(
-                  "opacity-0",
-                  `animate-stagger-${Math.min(idx + 1, 10)}`,
-                  miReserva && "border-primary/30 bg-primary/5"
-                )}
-                style={{ animation: "fade-in-up 0.5s var(--ease-spring) forwards" }}
-              >
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    {clase.horaInicio} - {clase.horaFin}
-                  </CardTitle>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm text-muted-foreground">{entrenador?.nombre ?? "—"}</p>
-                    {!miReserva && (
-                      <span className={cn("text-xs font-medium shrink-0", hayHueco ? "text-primary" : "text-red-600")}>
-                        {hayHueco ? "Libre" : "Completo"}
-                      </span>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {miReserva ? (
-                    confirmandoCancelar === miReserva.id ? (
-                      <div className="flex flex-col gap-2 rounded-md bg-muted p-2">
-                        <p className="text-xs">
-                          Esta hora esta cerrada: si cancelas, pierdes la plaza y no podras volver a reservarla tu
-                          sola, tendras que hablar con Elena. El credito de recuperacion, si te corresponde,
-                          depende de tu plan, de cancelar con mas de 24h de antelacion y de cuantas ya hayas
-                          usado este mes.
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            disabled={pendiente}
-                            onClick={() => cancelar(miReserva.id)}
-                          >
-                            Confirmar cancelacion
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => setConfirmandoCancelar(null)}>
-                            Volver
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between">
-                        <BadgeEstado estado={miReserva.estado} />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={pendiente}
-                          onClick={() => iniciarCancelacion(sesion, miReserva.id)}
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
-                    )
-                  ) : (
-                    <Button size="sm" disabled={pendiente} onClick={() => reservar(sesion.id)}>
-                      {hayHueco ? "Reservar" : "Unirse a lista de espera"}
-                    </Button>
+          {/* Tira de dias: deslizable con el pulgar, de hoy al final de la
+              ventana de tres semanas. Los dias sin ninguna sesion reservable
+              se ven apagados; los que ya tienen su reserva llevan un punto.
+              Ninguno se desactiva: un dia apagado puede seguir teniendo su
+              propia reserva (cerrada) que necesita poder cancelar. */}
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+            {dias.map((dia) => {
+              const seleccionado = dia.fecha === diaSeleccionado;
+              return (
+                <button
+                  key={dia.fecha}
+                  type="button"
+                  onClick={() => setDiaSeleccionado(dia.fecha)}
+                  aria-pressed={seleccionado}
+                  className={cn(
+                    "relative flex shrink-0 flex-col items-center gap-0.5 rounded-lg border px-3 py-2 text-sm transition-colors",
+                    seleccionado
+                      ? "border-primary bg-primary/10 text-foreground ring-1 ring-primary/30"
+                      : dia.tieneHueco
+                        ? "border-input text-foreground hover:bg-muted"
+                        : "border-transparent text-muted-foreground/50"
                   )}
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
-      </div>
+                >
+                  <span className="text-[0.65rem] uppercase tracking-wide">{formatearDiaCorto(dia.fecha)}</span>
+                  <span className="text-base font-semibold tabular-nums">{numeroDeDia(dia.fecha)}</span>
+                  {dia.tieneReserva && (
+                    <span className="absolute top-1 right-1 size-1.5 rounded-full bg-primary" aria-hidden />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Horas del dia elegido. */}
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-medium text-muted-foreground">{formatearDiaLargo(diaSeleccionado)}</p>
+
+            {delDia.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No hay clases disponibles este dia.</p>
+            ) : (
+              delDia.map(({ sesion, clase }, idx) => {
+                const hayHueco = sesionesLibres[sesion.id] ?? false;
+                const miReserva = reservaActivaDeClienteEnSesion(reservas, clienteId, sesion.id);
+                const entrenador = usuarios.find((u) => u.id === clase.entrenadorId);
+
+                return (
+                  <Card
+                    key={sesion.id}
+                    className={cn(
+                      "opacity-0",
+                      `animate-stagger-${Math.min(idx + 1, 10)}`,
+                      miReserva
+                        ? "border-primary/30 bg-primary/5"
+                        : hayHueco
+                          ? "border-emerald-500/40 bg-emerald-500/10"
+                          : "border-red-500/40 bg-red-500/10"
+                    )}
+                    style={{ animation: "fade-in-up 0.5s var(--ease-spring) forwards" }}
+                  >
+                    <CardHeader>
+                      <CardTitle className="text-base">
+                        {clase.horaInicio} - {clase.horaFin}
+                      </CardTitle>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm text-muted-foreground">{entrenador?.nombre ?? "—"}</p>
+                        {!miReserva && (
+                          <span className={cn("text-xs font-medium shrink-0", hayHueco ? "text-primary" : "text-red-600")}>
+                            {hayHueco ? "Libre" : "Completo"}
+                          </span>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {miReserva ? (
+                        confirmandoCancelar === miReserva.id ? (
+                          <div className="flex flex-col gap-2 rounded-md bg-muted p-2">
+                            <p className="text-xs">
+                              Esta hora esta cerrada: si cancelas, pierdes la plaza y no podras volver a reservarla tu
+                              sola, tendras que hablar con Elena. El credito de recuperacion, si te corresponde,
+                              depende de tu plan, de cancelar con mas de 24h de antelacion y de cuantas ya hayas
+                              usado este mes.
+                            </p>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                disabled={pendiente}
+                                onClick={() => cancelar(miReserva.id)}
+                              >
+                                Confirmar cancelacion
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => setConfirmandoCancelar(null)}>
+                                Volver
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <BadgeEstado estado={miReserva.estado} />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={pendiente}
+                              onClick={() => iniciarCancelacion(sesion, miReserva.id)}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        )
+                      ) : (
+                        <Button size="sm" disabled={pendiente} onClick={() => reservar(sesion.id)}>
+                          {hayHueco ? "Reservar" : "Unirse a lista de espera"}
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

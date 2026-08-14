@@ -170,3 +170,24 @@ export async function reabrirSesion(sesionId: string): Promise<{ error?: string 
   revalidatePath("/cliente");
   return {};
 }
+
+// Para festivos y ajustes puntuales: borrar una sesion suelta tras copiar la
+// semana (o cualquier otra), sin tocar el resto del horario fijo. La guarda
+// de "sin reservas activas" y el cleanup de la clase puntual huerfana viven
+// en la RPC eliminar_sesion (migracion 0018): necesitan mas que el rol para
+// autorizar, igual que el resto de operaciones con logica de negocio.
+export async function eliminarSesion(sesionId: string): Promise<{ error?: string }> {
+  const resultado = z.string().uuid("Sesion invalida").safeParse(sesionId);
+  if (!resultado.success) {
+    return { error: resultado.error.issues[0]?.message ?? "Datos invalidos" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("eliminar_sesion", { p_sesion_id: resultado.data });
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/clases");
+  revalidatePath("/entrenador/clases");
+  revalidatePath("/cliente");
+  return {};
+}

@@ -103,7 +103,7 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
         toast("La semana siguiente ya estaba copiada: no se creo nada nuevo.", "info");
       } else {
         toast(
-          `Semana siguiente copiada: ${creadas} sesion${creadas === 1 ? "" : "es"} creada${creadas === 1 ? "" : "s"}, con las clientas de cuota mensual ya apuntadas. Las de bono deben reservar ellas.`,
+          `Semana siguiente copiada: ${creadas} sesion${creadas === 1 ? "" : "es"} creada${creadas === 1 ? "" : "s"}. Nadie queda apuntado: cada clienta reserva su plaza.`,
           "success"
         );
       }
@@ -143,7 +143,7 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
               size="sm"
               onClick={copiarSemanaSiguiente}
               disabled={copiando || !semanaOrigenTieneSesionesFijas}
-              title="Copia el horario fijo de esta semana a la siguiente (las clases puntuales no se copian) y reserva plaza a las clientas de cuota mensual que estaban esta semana. Las de bono reservan ellas mismas. Repetirlo no duplica nada."
+              title="Copia el horario fijo de esta semana a la siguiente: solo crea las horas (las clases puntuales no se copian). No apunta a nadie, cada clienta reserva su plaza. Repetirlo no duplica nada."
             >
               <CopyIcon className="size-3.5" />
               {copiando ? "Copiando..." : "Copiar semana"}
@@ -152,15 +152,10 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
         </div>
       </div>
 
-      {/* El hecho mas sorprendente del boton de copiar (que tambien apunta a
-          gente, no solo crea horas) no puede vivir solo en el title: en
-          movil no hay hover, y en escritorio Elena lo veria recien despues
-          de haberlo hecho. Por eso va como texto siempre visible, junto con
-          que las clases puntuales quedan fuera de la copia. */}
       {puedeAbrir && (
         <p className="text-xs text-muted-foreground">
           {semanaOrigenTieneSesionesFijas
-            ? "Copiar la semana tambien apunta a las clientas de cuota mensual que tenian clase esa semana (las de bono reservan ellas); solo copia el horario fijo, las clases puntuales no se copian."
+            ? "Copiar la semana solo crea las horas del horario fijo (las clases puntuales no se copian); no apunta a nadie, cada clienta reserva su plaza."
             : "Esta semana no tiene sesiones fijas: no hay nada que copiar a la siguiente."}
         </p>
       )}

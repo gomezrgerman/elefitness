@@ -13,7 +13,7 @@ describe("crear_bono RPC", () => {
     const { data: cliente } = await admin.from("clientes").select("id").eq("usuario_id", usuario!.id).single();
     saraClienteId = cliente!.id;
 
-    const { data: plan } = await admin.from("planes").select("id").eq("tipo", "bono").single();
+    const { data: plan } = await admin.from("planes").select("id").eq("tipo", "bono").limit(1).single();
     planBonoId = plan!.id;
   });
 
@@ -90,5 +90,21 @@ describe("crear_bono RPC", () => {
 
     const { data: clienteActualizado } = await admin.from("clientes").select("deuda_creditos").eq("id", saraClienteId).single();
     expect(clienteActualizado?.deuda_creditos).toBe(0);
+  });
+
+  it("p_fecha_caducidad sobreescribe el calculo automatico de +3 meses (migracion 0017)", async () => {
+    const elena = await signInAs("elena@elefitness.com");
+    const { data, error } = await elena.rpc("crear_bono", {
+      p_cliente_id: saraClienteId,
+      p_plan_id: planBonoId,
+      p_creditos_totales: 5,
+      p_fecha_compra: "2026-08-01",
+      p_tipo: "normal",
+      p_fecha_caducidad: "2027-01-15",
+    });
+    bonoCreadoId = data?.id;
+    expect(error).toBeNull();
+    // Elena la fija a mano, como hacia en Harbiz: no son los +3 meses de por defecto.
+    expect(data?.fecha_caducidad).toBe("2027-01-15");
   });
 });

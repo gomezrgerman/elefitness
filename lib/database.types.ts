@@ -275,6 +275,7 @@ export type Database = {
       }
       planes: {
         Row: {
+          activo: boolean
           clases_incluidas: number | null
           id: string
           nombre: string
@@ -283,6 +284,7 @@ export type Database = {
           tipo: Database["public"]["Enums"]["tipo_plan_enum"]
         }
         Insert: {
+          activo?: boolean
           clases_incluidas?: number | null
           id?: string
           nombre: string
@@ -291,6 +293,7 @@ export type Database = {
           tipo: Database["public"]["Enums"]["tipo_plan_enum"]
         }
         Update: {
+          activo?: boolean
           clases_incluidas?: number | null
           id?: string
           nombre?: string
@@ -303,6 +306,7 @@ export type Database = {
       reservas: {
         Row: {
           asistencia: Database["public"]["Enums"]["estado_asistencia_enum"]
+          bono_id: string | null
           cancelada_en: string | null
           cliente_id: string
           created_at: string
@@ -312,6 +316,7 @@ export type Database = {
         }
         Insert: {
           asistencia?: Database["public"]["Enums"]["estado_asistencia_enum"]
+          bono_id?: string | null
           cancelada_en?: string | null
           cliente_id: string
           created_at?: string
@@ -321,6 +326,7 @@ export type Database = {
         }
         Update: {
           asistencia?: Database["public"]["Enums"]["estado_asistencia_enum"]
+          bono_id?: string | null
           cancelada_en?: string | null
           cliente_id?: string
           created_at?: string
@@ -329,6 +335,13 @@ export type Database = {
           sesion_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "reservas_bono_id_fkey"
+            columns: ["bono_id"]
+            isOneToOne: false
+            referencedRelation: "bonos_cliente"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reservas_cliente_id_fkey"
             columns: ["cliente_id"]
@@ -474,6 +487,7 @@ export type Database = {
         Args: {
           p_cliente_id: string
           p_creditos_totales: number
+          p_fecha_caducidad?: string | null
           p_fecha_compra: string
           p_plan_id: string
           p_tipo?: Database["public"]["Enums"]["tipo_bono_enum"]
@@ -495,6 +509,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      eliminar_sesion: {
+        Args: { p_sesion_id: string }
+        Returns: undefined
       }
       hoy_en_espana: { Args: never; Returns: string }
       marcar_asistencia: {

@@ -1,10 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BadgeEstado } from "./badge-estado";
+import { BotonAsignarBono } from "./boton-asignar-bono";
+import { SesionesBonoConsumidas } from "./sesiones-bono-consumidas";
 import { planPorId, usuarioPorId, creditosRestantes } from "@/lib/selectors";
 import { formatearDiaLargo, hoyEnEspana } from "@/lib/fechas";
 import type {
-  Cliente, Usuario, Plan, Pago, BonoCliente, MovimientoHistorial, Sesion, Clase,
+  Cliente, Usuario, Plan, Pago, BonoCliente, MovimientoHistorial, Sesion, Clase, Reserva,
 } from "@/lib/types";
 
 interface Props {
@@ -17,6 +19,8 @@ interface Props {
   historial: MovimientoHistorial[];
   sesiones: Sesion[];
   clases: Clase[];
+  esAdmin?: boolean;
+  reservasConBono?: Reserva[];
 }
 
 const ETIQUETA_EVENTO: Record<string, string> = {
@@ -29,11 +33,16 @@ const ETIQUETA_EVENTO: Record<string, string> = {
   asistencia_corregida: "Asistencia corregida",
 };
 
-export function FichaCliente({ cliente, usuario, usuarios, planes, pagos, bonos, historial, sesiones, clases }: Props) {
+export function FichaCliente({
+  cliente, usuario, usuarios, planes, pagos, bonos, historial, sesiones, clases, esAdmin = false, reservasConBono = [],
+}: Props) {
   const plan = planPorId(planes, cliente.planId);
   const entrenador = cliente.entrenadorRestringidoId ? usuarioPorId(usuarios, cliente.entrenadorRestringidoId) : undefined;
   const hoy = hoyEnEspana();
   const bonosActivos = bonos.filter((b) => b.activo && (!b.fechaCaducidad || b.fechaCaducidad >= hoy));
+  // Un plan de bono retirado (precio antiguo) no se ofrece al asignar uno
+  // nuevo, solo sigue siendo valido para quien ya lo tenia.
+  const planesBono = planes.filter((p) => p.tipo === "bono" && p.activo);
 
   function descripcionDeSesion(sesionId: string): string {
     const sesion = sesiones.find((s) => s.id === sesionId);
@@ -80,26 +89,33 @@ export function FichaCliente({ cliente, usuario, usuarios, planes, pagos, bonos,
         </CardContent>
       </Card>
 
-      {bonosActivos.length > 0 && (
+      {(bonosActivos.length > 0 || esAdmin) && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-base">Bonos activos</CardTitle>
+            {esAdmin && <BotonAsignarBono clienteId={cliente.id} planesBono={planesBono} hoy={hoy} />}
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-sm">
-            {bonosActivos.map((bono) => (
-              <div key={bono.id} className="flex items-center justify-between">
-                <span>
-                  {bono.tipo === "recuperacion" ? "Bono de recuperacion" : "Bono"} ·{" "}
-                  {creditosRestantes(bono)} de {bono.creditosTotales}
-                </span>
-                <span className="text-muted-foreground">
-                  {bono.fechaCaducidad ? `caduca ${bono.fechaCaducidad}` : "sin caducidad"}
-                </span>
-              </div>
-            ))}
+            {bonosActivos.length === 0 ? (
+              <p className="text-muted-foreground">Sin bonos activos.</p>
+            ) : (
+              bonosActivos.map((bono) => (
+                <div key={bono.id} className="flex items-center justify-between">
+                  <span>
+                    {bono.tipo === "recuperacion" ? "Bono de recuperacion" : "Bono"} ·{" "}
+                    {creditosRestantes(bono)} de {bono.creditosTotales}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {bono.fechaCaducidad ? `caduca ${bono.fechaCaducidad}` : "sin caducidad"}
+                  </span>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       )}
+
+      {esAdmin && <SesionesBonoConsumidas reservas={reservasConBono} sesiones={sesiones} clases={clases} />}
 
       <Card>
         <CardHeader>

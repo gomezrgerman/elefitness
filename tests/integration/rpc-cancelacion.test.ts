@@ -2,13 +2,19 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAdminClient } from "../../lib/supabase/admin";
 import { borrarClases, clienteIdPorEmail, crearClaseConSesion, signInAs } from "./helpers";
 
-// Reglas de cancelacion confirmadas por German (migracion 0010):
-//   - el credito consumido al reservar NO vuelve nunca al bono de origen;
-//   - cancelar con 24h+ compensa con un bono de recuperacion, y solo a quien
-//     paga por creditos (plan de tipo 'bono');
-//   - cancelar con menos de 24h no compensa nada;
-//   - no se puede reservar ni cancelar contra una sesion ya pasada, ni cancelar
-//     una reserva con la asistencia ya registrada.
+// Reglas de cancelacion confirmadas por Elena el 2026-08-14 (brief-app-centro-entrenamiento.md
+// punto 9, migracion 0017) -- invierten lo que estaba construido antes:
+//   - Clienta de BONO, cancela >=24h: se devuelve el credito exacto que se
+//     consumio al reservar (via reservas.bono_id). No se emite bono de
+//     recuperacion ni cuenta contra ningun tope.
+//   - Clienta de BONO, cancela <24h: el credito se pierde.
+//   - Clienta de MENSUALIDAD, cancela >=24h: se emite un bono de recuperacion
+//     (caduca el ultimo dia del mes natural en que se genera), con tope
+//     mensual segun dias_semana_habituales
+//     (1/mes si 1-2 dias, 2/mes si 3+).
+//   - Clienta de MENSUALIDAD, cancela <24h: no pasa nada.
+// No se puede reservar ni cancelar contra una sesion ya pasada, ni cancelar
+// una reserva con la asistencia ya registrada (sin cambios, migracion 0010/0014).
 // Cada test crea su propia clase+sesion al offset que necesita (ver
 // crearClaseConSesion en helpers.ts) para que la regla no dependa del dia en
 // que se ejecute la suite.
@@ -20,10 +26,8 @@ describe("Reglas de cancelacion", () => {
   let mariaClienteId: string;
   let bonoNormalLauraId: string;
 
-  async function borrarRecuperaciones() {
-    for (const clienteId of [lauraClienteId, anaClienteId, mariaClienteId]) {
-      await admin.from("bonos_cliente").delete().eq("cliente_id", clienteId).eq("tipo", "recuperacion");
-    }
+  async function borrarRecuperaciones(clienteId: string) {
+    await admin.from("bonos_cliente").delete().eq("cliente_id", clienteId).eq("tipo", "recuperacion");
   }
 
   async function recuperacionesDe(clienteId: string) {
@@ -42,7 +46,7 @@ describe("Reglas de cancelacion", () => {
 
   async function reiniciarEstadoLaura() {
     await admin.from("bonos_cliente").update({ creditos_usados: 0 }).eq("id", bonoNormalLauraId);
-    await borrarRecuperaciones();
+    await borrarRecuperaciones(lauraClienteId);
   }
 
   beforeAll(async () => {
@@ -60,14 +64,18 @@ describe("Reglas de cancelacion", () => {
     bonoNormalLauraId = bono.id;
 
     await reiniciarEstadoLaura();
+    await borrarRecuperaciones(anaClienteId);
+    await borrarRecuperaciones(mariaClienteId);
   });
 
   afterAll(async () => {
     await borrarClases(admin, clasesCreadas);
     await reiniciarEstadoLaura();
+    await borrarRecuperaciones(anaClienteId);
+    await borrarRecuperaciones(mariaClienteId);
   });
 
-  it("cancelar con menos de 24h pierde el credito y no emite bono de recuperacion", async () => {
+  it("bono: cancelar con menos de 24h pierde el credito y no emite bono de recuperacion", async () => {
     await reiniciarEstadoLaura();
     const fixture = await crearClaseConSesion(admin, { offsetHoras: 12 });
     clasesCreadas.push(fixture.claseId);
@@ -84,12 +92,12 @@ describe("Reglas de cancelacion", () => {
     const { error } = await laura.rpc("cancelar_reserva", { p_reserva_id: reserva!.id });
     expect(error).toBeNull();
 
-    // El credito se pierde: es exactamente la fuga que cierra la migracion 0010.
+    // El credito se pierde: cancelar con menos de 24h no compensa nada.
     expect(await creditosUsadosLaura()).toBe(1);
     expect(await recuperacionesDe(lauraClienteId)).toEqual([]);
   });
 
-  it("cancelar con 24h+ emite un bono de recuperacion y tampoco devuelve el credito original", async () => {
+  it("bono: cancelar con 24h+ devuelve el credito y no emite bono de recuperacion", async () => {
     await reiniciarEstadoLaura();
     const fixture = await crearClaseConSesion(admin, { offsetHoras: 48 });
     clasesCreadas.push(fixture.claseId);
@@ -106,27 +114,15 @@ describe("Reglas de cancelacion", () => {
     const { error } = await laura.rpc("cancelar_reserva", { p_reserva_id: reserva!.id });
     expect(error).toBeNull();
 
-    // El bono de recuperacion es la UNICA compensacion: el credito del bono
-    // original sigue consumido.
-    expect(await creditosUsadosLaura()).toBe(1);
-
-    const recuperaciones = await recuperacionesDe(lauraClienteId);
-    expect(recuperaciones.length).toBe(1);
-    const recuperacion = recuperaciones[0];
-    expect(recuperacion.creditos_totales).toBe(1);
-    expect(recuperacion.creditos_usados).toBe(0);
-    expect(recuperacion.plan_id).toBeNull();
-    expect(recuperacion.activo).toBe(true);
-
-    const caducidadEsperada = new Date(`${recuperacion.fecha_compra}T00:00:00Z`);
-    caducidadEsperada.setUTCDate(caducidadEsperada.getUTCDate() + 14);
-    expect(recuperacion.fecha_caducidad).toBe(caducidadEsperada.toISOString().slice(0, 10));
+    // El credito exacto que se consumio al reservar vuelve al bono de origen.
+    expect(await creditosUsadosLaura()).toBe(0);
+    expect(await recuperacionesDe(lauraClienteId)).toEqual([]);
   });
 
-  it("una clienta de plan mensual no recibe bono de recuperacion al cancelar con 24h+", async () => {
+  it("mensual: cancelar con 24h+ emite un bono de recuperacion", async () => {
+    await borrarRecuperaciones(anaClienteId);
     const fixture = await crearClaseConSesion(admin, { offsetHoras: 48 });
     clasesCreadas.push(fixture.claseId);
-    await admin.from("bonos_cliente").delete().eq("cliente_id", anaClienteId).eq("tipo", "recuperacion");
 
     const ana = await signInAs("ana@example.com");
     const { data: reserva, error: errorReserva } = await ana.rpc("reservar_sesion", {
@@ -139,55 +135,72 @@ describe("Reglas de cancelacion", () => {
     const { error } = await ana.rpc("cancelar_reserva", { p_reserva_id: reserva!.id });
     expect(error).toBeNull();
 
-    // Ana paga cuota mensual: no consume creditos, asi que un bono de
-    // recuperacion seria inerte y solo confundiria en pantalla.
+    const recuperaciones = await recuperacionesDe(anaClienteId);
+    expect(recuperaciones.length).toBe(1);
+    const recuperacion = recuperaciones[0];
+    expect(recuperacion.creditos_totales).toBe(1);
+    expect(recuperacion.creditos_usados).toBe(0);
+    expect(recuperacion.plan_id).toBeNull();
+    expect(recuperacion.activo).toBe(true);
+
+    // Corregido el 2026-08-14: caduca el ultimo dia del mes natural en que se
+    // genera, no a los 14 dias fijos.
+    const generado = new Date(`${recuperacion.fecha_compra}T00:00:00Z`);
+    const ultimoDiaDelMes = new Date(Date.UTC(generado.getUTCFullYear(), generado.getUTCMonth() + 1, 0));
+    expect(recuperacion.fecha_caducidad).toBe(ultimoDiaDelMes.toISOString().slice(0, 10));
+  });
+
+  it("mensual: cancelar con menos de 24h no emite ningun bono de recuperacion", async () => {
+    await borrarRecuperaciones(anaClienteId);
+    const fixture = await crearClaseConSesion(admin, { offsetHoras: 12 });
+    clasesCreadas.push(fixture.claseId);
+
+    const ana = await signInAs("ana@example.com");
+    const { data: reserva, error: errorReserva } = await ana.rpc("reservar_sesion", {
+      p_sesion_id: fixture.sesionId,
+      p_cliente_id: anaClienteId,
+    });
+    expect(errorReserva).toBeNull();
+    expect(reserva?.estado).toBe("confirmada");
+
+    const { error } = await ana.rpc("cancelar_reserva", { p_reserva_id: reserva!.id });
+    expect(error).toBeNull();
+
     expect(await recuperacionesDe(anaClienteId)).toEqual([]);
   });
 
-  it("tope mensual: Laura (dias_semana_habituales=3) recibe 2 bonos de recuperacion al mes y no un tercero", async () => {
-    await reiniciarEstadoLaura();
+  it("tope mensual: Maria (mensual, dias_semana_habituales=3) recibe 2 bonos de recuperacion al mes y no un tercero", async () => {
+    await borrarRecuperaciones(mariaClienteId);
 
-    const { data: laura } = await admin
+    const { data: maria } = await admin
       .from("clientes")
       .select("dias_semana_habituales")
-      .eq("id", lauraClienteId)
+      .eq("id", mariaClienteId)
       .single();
-    expect(laura?.dias_semana_habituales).toBe(3);
+    expect(maria?.dias_semana_habituales).toBe(3);
 
-    const lauraClient = await signInAs("laura@example.com");
+    const mariaClient = await signInAs("maria@example.com");
     const recuentos: number[] = [];
 
     for (const offsetHoras of [48, 72, 96]) {
       const fixture = await crearClaseConSesion(admin, { offsetHoras });
       clasesCreadas.push(fixture.claseId);
 
-      const { data: reserva, error: errorReserva } = await lauraClient.rpc("reservar_sesion", {
+      const { data: reserva, error: errorReserva } = await mariaClient.rpc("reservar_sesion", {
         p_sesion_id: fixture.sesionId,
-        p_cliente_id: lauraClienteId,
+        p_cliente_id: mariaClienteId,
       });
       expect(errorReserva).toBeNull();
       expect(reserva?.estado).toBe("confirmada");
 
-      const { error } = await lauraClient.rpc("cancelar_reserva", { p_reserva_id: reserva!.id });
+      const { error } = await mariaClient.rpc("cancelar_reserva", { p_reserva_id: reserva!.id });
       expect(error).toBeNull();
 
-      recuentos.push((await recuperacionesDe(lauraClienteId)).length);
+      recuentos.push((await recuperacionesDe(mariaClienteId)).length);
     }
 
     // La tercera cancelacion del mes ya no compensa: el tope es 2/mes.
     expect(recuentos).toEqual([1, 2, 2]);
-
-    // Ninguno de los tres creditos vuelve. Se suma sobre todos los bonos porque
-    // el bono de recuperacion caduca a 14 dias — antes que el bono normal del
-    // seed — asi que reservar_sesion cobra la segunda y la tercera reserva
-    // contra los propios bonos de recuperacion, no contra el bono normal.
-    const { data: bonosLaura } = await admin
-      .from("bonos_cliente")
-      .select("creditos_usados")
-      .eq("cliente_id", lauraClienteId);
-    const usadosTotales = (bonosLaura ?? []).reduce((suma, bono) => suma + bono.creditos_usados, 0);
-    expect(usadosTotales).toBe(3);
-    expect(await creditosUsadosLaura()).toBe(1);
   });
 
   it("no se puede cancelar una reserva de una sesion que ya ha pasado", async () => {

@@ -107,34 +107,35 @@ describe("reservar_sesion / cancelar_reserva RPC", () => {
     const { data: bonoLaura } = await admin.from("bonos_cliente").select("creditos_usados").eq("id", bonoNormalLauraId).single();
     expect(bonoLaura?.creditos_usados).toBe(1);
 
-    // Ana paga cuota mensual: no consume creditos, asi que aunque cancele con
-    // 24h+ de antelacion no le corresponde bono de recuperacion (migracion
-    // 0010; antes se le emitia uno inerte). El caso con 24h+ de una clienta de
-    // bono esta cubierto en rpc-cancelacion.test.ts.
+    // Ana paga cuota mensual y cancelo con 24h+ de antelacion (fixture a 72h):
+    // le corresponde un bono de recuperacion (migracion 0017). El caso de una
+    // clienta de bono con 24h+ (devuelve el credito, sin recuperacion) esta
+    // cubierto en rpc-cancelacion.test.ts.
     const { data: bonosRecuperacionAna } = await admin
       .from("bonos_cliente")
       .select("id")
       .eq("cliente_id", anaClienteId)
       .eq("tipo", "recuperacion");
-    expect(bonosRecuperacionAna).toEqual([]);
+    expect(bonosRecuperacionAna?.length).toBe(1);
+    await admin.from("bonos_cliente").delete().eq("cliente_id", anaClienteId).eq("tipo", "recuperacion");
   });
 
-  it("cancelar la reserva promovida de Laura NO devuelve su credito de bono", async () => {
+  it("cancelar la reserva promovida de Laura devuelve su credito de bono", async () => {
     const laura = await signInAs("laura@example.com");
     const { error } = await laura.rpc("cancelar_reserva", { p_reserva_id: lauraReservaId });
     expect(error).toBeNull();
 
-    // El credito consumido al confirmar la plaza no vuelve al bono de origen:
-    // la unica compensacion por cancelar con 24h+ es el bono de recuperacion.
+    // El credito que se cobro al promoverla (via reservas.bono_id) vuelve al
+    // bono de origen: cancelo con 24h+ de antelacion (fixture a 72h).
     const { data: bonoLaura } = await admin.from("bonos_cliente").select("creditos_usados").eq("id", bonoNormalLauraId).single();
-    expect(bonoLaura?.creditos_usados).toBe(1);
+    expect(bonoLaura?.creditos_usados).toBe(0);
 
     const { data: recuperaciones } = await admin
       .from("bonos_cliente")
       .select("id")
       .eq("cliente_id", lauraClienteId)
       .eq("tipo", "recuperacion");
-    expect(recuperaciones?.length).toBe(1);
+    expect(recuperaciones).toEqual([]);
 
     // Al liberarse la plaza, la siguiente en lista de espera (Sara, del primer
     // test de este fichero) pasa a confirmada.

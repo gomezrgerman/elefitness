@@ -17,7 +17,7 @@ describe("aforo_efectivo y promocion desde lista de espera", () => {
     saraClienteId = await clienteIdPorEmail(admin, "sara@example.com");
     lauraClienteId = await clienteIdPorEmail(admin, "laura@example.com");
 
-    const { data: plan, error: errorPlan } = await admin.from("planes").select("id").eq("tipo", "bono").single();
+    const { data: plan, error: errorPlan } = await admin.from("planes").select("id").eq("tipo", "bono").limit(1).single();
     if (errorPlan || !plan) throw errorPlan ?? new Error("No hay plan de tipo bono en el seed");
     planBonoId = plan.id;
 

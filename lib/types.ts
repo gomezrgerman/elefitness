@@ -29,6 +29,9 @@ export interface Plan {
   precio: number;
   tipo: TipoPlan;
   clasesIncluidas: number | null;
+  // Un plan retirado (precio antiguo) sigue siendo un id valido para las
+  // clientas que ya lo tenian; solo deja de ofrecerse en las altas nuevas.
+  activo: boolean;
 }
 
 export interface Cliente {
@@ -78,6 +81,10 @@ export interface Reserva {
   asistencia: EstadoAsistencia;
   canceladaEn: string | null;
   createdAt: string;
+  // Bono al que se le desconto un credito al confirmar esta reserva; null si
+  // la clienta es de mensualidad, si quedo en lista de espera, o si nunca
+  // llego a confirmarse.
+  bonoId: string | null;
 }
 
 export interface Pago {

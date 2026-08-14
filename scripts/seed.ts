@@ -132,19 +132,33 @@ async function main() {
   const ivanId = idsPorEmail.get("ivan@elefitness.com")!;
   const elenaId = idsPorEmail.get("elena@elefitness.com")!;
 
-  const { data: planMensual, error: errorPlanMensual } = await admin
+  // Catalogo real confirmado por Elena el 2026-08-14 (brief punto 10). Dos
+  // precios de bono conviven: "Bono 12 sesiones" es el precio antiguo, ya no
+  // se ofrece de alta (activo=false) pero sigue siendo un plan_id valido para
+  // quien lo tenia; "Bono 10 sesiones" es el que se ofrece hoy por defecto.
+  const { data: planesCreados, error: errorPlanes } = await admin
     .from("planes")
-    .insert({ nombre: "Cuota mensual", precio: 45, tipo: "mensual", clases_incluidas: null })
-    .select()
-    .single();
-  if (errorPlanMensual || !planMensual) throw errorPlanMensual ?? new Error("No se pudo crear plan mensual");
+    .insert([
+      { nombre: "Basico", precio: 50, tipo: "mensual", clases_incluidas: 1, activo: true },
+      { nombre: "Fit", precio: 90, tipo: "mensual", clases_incluidas: 2, activo: true },
+      { nombre: "Fit Plus", precio: 130, tipo: "mensual", clases_incluidas: 3, activo: true },
+      { nombre: "Bono 12 sesiones", precio: 120, tipo: "bono", clases_incluidas: 12, activo: false },
+      { nombre: "Bono 10 sesiones", precio: 130, tipo: "bono", clases_incluidas: 10, activo: true },
+      { nombre: "Sesion de prueba", precio: 15, tipo: "bono", clases_incluidas: 1, activo: true },
+    ])
+    .select();
+  if (errorPlanes || !planesCreados) throw errorPlanes ?? new Error("No se pudieron crear los planes");
+  const planesSembrados = planesCreados;
 
-  const { data: planBono, error: errorPlanBono } = await admin
-    .from("planes")
-    .insert({ nombre: "Bono 10 clases", precio: 80, tipo: "bono", clases_incluidas: 10 })
-    .select()
-    .single();
-  if (errorPlanBono || !planBono) throw errorPlanBono ?? new Error("No se pudo crear plan bono");
+  function idDePlan(nombre: string): string {
+    const plan = planesSembrados.find((p) => p.nombre === nombre);
+    if (!plan) throw new Error(`Plan sembrado no encontrado: ${nombre}`);
+    return plan.id;
+  }
+  const planBasico = idDePlan("Basico");
+  const planFit = idDePlan("Fit");
+  const planFitPlus = idDePlan("Fit Plus");
+  const planBono10 = idDePlan("Bono 10 sesiones");
 
   // Genera las 51 clases del horario fijo a partir de FRANJAS x dias.
   //
@@ -187,14 +201,14 @@ async function main() {
   }
 
   const clientesSeed = [
-    { email: "maria@example.com", planId: planMensual.id, notas: "Full body 3x/semana, foco en tren inferior. Progresar sentadilla goblet.", diasSemana: 3 },
-    { email: "laura@example.com", planId: planBono.id, notas: "Circuito funcional, cuidado con el hombro derecho.", diasSemana: 3 },
-    { email: "sara@example.com", planId: planMensual.id, notas: "Readaptacion tras baja, sin saltos todavia.", diasSemana: 1 },
-    { email: "ana@example.com", planId: planMensual.id, notas: "", diasSemana: 2 },
-    { email: "beatriz@example.com", planId: planMensual.id, notas: "", diasSemana: 2 },
-    { email: "carla@example.com", planId: planMensual.id, notas: "", diasSemana: 2 },
-    { email: "diana@example.com", planId: planMensual.id, notas: "", diasSemana: 2 },
-    { email: "eva@example.com", planId: planMensual.id, notas: "", diasSemana: 2 },
+    { email: "maria@example.com", planId: planFitPlus, notas: "Full body 3x/semana, foco en tren inferior. Progresar sentadilla goblet.", diasSemana: 3 },
+    { email: "laura@example.com", planId: planBono10, notas: "Circuito funcional, cuidado con el hombro derecho.", diasSemana: 3 },
+    { email: "sara@example.com", planId: planBasico, notas: "Readaptacion tras baja, sin saltos todavia.", diasSemana: 1 },
+    { email: "ana@example.com", planId: planFit, notas: "", diasSemana: 2 },
+    { email: "beatriz@example.com", planId: planFit, notas: "", diasSemana: 2 },
+    { email: "carla@example.com", planId: planFit, notas: "", diasSemana: 2 },
+    { email: "diana@example.com", planId: planFit, notas: "", diasSemana: 2 },
+    { email: "eva@example.com", planId: planFit, notas: "", diasSemana: 2 },
   ];
 
   const idsClientePorEmail = new Map<string, string>();
@@ -219,14 +233,14 @@ async function main() {
   const idEva = idsClientePorEmail.get("eva@example.com")!;
 
   const { error: errorPagos } = await admin.from("pagos").insert([
-    { cliente_id: idMaria, plan_id: planMensual.id, tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 45, fecha_pago: "2026-07-01", ultimo_cobro: "2026-07-01", proximo_cobro: "2026-08-01", registrado_por: elenaId },
-    { cliente_id: idLaura, plan_id: planBono.id, tipo: "bono", metodo: "efectivo", estado: "al_dia", importe: 80, fecha_pago: "2026-04-02", ultimo_cobro: "2026-04-02", proximo_cobro: null, registrado_por: elenaId },
-    { cliente_id: idSara, plan_id: planMensual.id, tipo: "mensual", metodo: "stripe", estado: "moroso", importe: 45, fecha_pago: "2026-06-01", ultimo_cobro: "2026-06-01", proximo_cobro: "2026-07-01", registrado_por: elenaId },
-    { cliente_id: idAna, plan_id: planMensual.id, tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 45, fecha_pago: "2026-07-01", ultimo_cobro: "2026-07-01", proximo_cobro: "2026-08-01", registrado_por: elenaId },
-    { cliente_id: idBeatriz, plan_id: planMensual.id, tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 45, fecha_pago: "2026-07-01", ultimo_cobro: "2026-07-01", proximo_cobro: "2026-08-01", registrado_por: elenaId },
-    { cliente_id: idCarla, plan_id: planMensual.id, tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 45, fecha_pago: "2026-07-01", ultimo_cobro: "2026-07-01", proximo_cobro: "2026-08-01", registrado_por: elenaId },
-    { cliente_id: idDiana, plan_id: planMensual.id, tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 45, fecha_pago: "2026-07-01", ultimo_cobro: "2026-07-01", proximo_cobro: "2026-08-01", registrado_por: elenaId },
-    { cliente_id: idEva, plan_id: planMensual.id, tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 45, fecha_pago: "2026-07-01", ultimo_cobro: "2026-07-01", proximo_cobro: "2026-08-01", registrado_por: elenaId },
+    { cliente_id: idMaria, plan_id: planFitPlus, tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 130, fecha_pago: "2026-07-01", ultimo_cobro: "2026-07-01", proximo_cobro: "2026-08-01", registrado_por: elenaId },
+    { cliente_id: idLaura, plan_id: planBono10, tipo: "bono", metodo: "efectivo", estado: "al_dia", importe: 130, fecha_pago: "2026-04-02", ultimo_cobro: "2026-04-02", proximo_cobro: null, registrado_por: elenaId },
+    { cliente_id: idSara, plan_id: planBasico, tipo: "mensual", metodo: "stripe", estado: "moroso", importe: 50, fecha_pago: "2026-06-01", ultimo_cobro: "2026-06-01", proximo_cobro: "2026-07-01", registrado_por: elenaId },
+    { cliente_id: idAna, plan_id: planFit, tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 90, fecha_pago: "2026-07-01", ultimo_cobro: "2026-07-01", proximo_cobro: "2026-08-01", registrado_por: elenaId },
+    { cliente_id: idBeatriz, plan_id: planFit, tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 90, fecha_pago: "2026-07-01", ultimo_cobro: "2026-07-01", proximo_cobro: "2026-08-01", registrado_por: elenaId },
+    { cliente_id: idCarla, plan_id: planFit, tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 90, fecha_pago: "2026-07-01", ultimo_cobro: "2026-07-01", proximo_cobro: "2026-08-01", registrado_por: elenaId },
+    { cliente_id: idDiana, plan_id: planFit, tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 90, fecha_pago: "2026-07-01", ultimo_cobro: "2026-07-01", proximo_cobro: "2026-08-01", registrado_por: elenaId },
+    { cliente_id: idEva, plan_id: planFit, tipo: "mensual", metodo: "stripe", estado: "al_dia", importe: 90, fecha_pago: "2026-07-01", ultimo_cobro: "2026-07-01", proximo_cobro: "2026-08-01", registrado_por: elenaId },
   ]);
   if (errorPagos) throw errorPagos;
 
@@ -238,7 +252,7 @@ async function main() {
   const caducidadBono = sumarMesesMismoDia(fechaCompraBono, 3);
   const { error: errorBono } = await admin.from("bonos_cliente").insert({
     cliente_id: idLaura,
-    plan_id: planBono.id,
+    plan_id: planBono10,
     tipo: "normal",
     creditos_totales: 10,
     creditos_usados: 0,

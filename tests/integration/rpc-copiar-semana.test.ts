@@ -51,7 +51,8 @@ describe("copiar_semana RPC", () => {
 
     fechaDestino = sumarDias(fechaOrigen, 7);
 
-    // Maria es mensual y Laura de bono: la copia debe arrastrar solo a Maria.
+    // Maria (mensual) y Laura (bono) tienen reserva en el origen: la copia
+    // (migracion 0017) no debe arrastrar a ninguna de las dos.
     await admin.from("reservas").insert([
       { sesion_id: sesionLunesId, cliente_id: mariaClienteId, estado: "confirmada" },
       { sesion_id: sesionLunesId, cliente_id: lauraClienteId, estado: "confirmada" },
@@ -89,7 +90,7 @@ describe("copiar_semana RPC", () => {
     expect(error?.message).toMatch(/posterior/);
   });
 
-  it("copia la semana entera (no solo un dia), con su aforo_efectivo y sus reservas confirmadas", async () => {
+  it("copia la semana entera (no solo un dia) con su aforo_efectivo, sin copiar ninguna reserva", async () => {
     const { data: bonoAntes } = await admin
       .from("bonos_cliente")
       .select("creditos_usados")
@@ -124,22 +125,10 @@ describe("copiar_semana RPC", () => {
     expect(copiaTercerDia).not.toBeNull();
     expect(copiaTercerDia?.aforo_efectivo).toBeNull();
 
-    const { data: reservaCopiada } = await admin
-      .from("reservas")
-      .select("estado")
-      .eq("sesion_id", copiaPrimerDia!.id)
-      .eq("cliente_id", mariaClienteId)
-      .single();
-    expect(reservaCopiada?.estado).toBe("confirmada");
-
-    // Laura es de bono: copiar la semana no debe reservarle plaza ni, sobre
-    // todo, gastarle un credito que ella no ha decidido gastar.
-    const { data: reservasLaura } = await admin
-      .from("reservas")
-      .select("id")
-      .eq("sesion_id", copiaPrimerDia!.id)
-      .eq("cliente_id", lauraClienteId);
-    expect(reservasLaura).toEqual([]);
+    // Elena confirmo el 2026-08-14 que copiar la semana no debe apuntar a
+    // nadie, ni de mensualidad ni de bono: solo crea las horas.
+    const { data: reservasCopiadas } = await admin.from("reservas").select("cliente_id").eq("sesion_id", copiaPrimerDia!.id);
+    expect(reservasCopiadas).toEqual([]);
 
     const { data: bonoDespues } = await admin
       .from("bonos_cliente")

@@ -14,10 +14,11 @@ import {
 } from "@/lib/selectors";
 import { marcarAsistencia } from "@/lib/actions/asistencia";
 import { cancelarReserva } from "@/lib/actions/reservas";
-import { cerrarSesion, reabrirSesion } from "@/lib/actions/sesiones";
+import { cerrarSesion, reabrirSesion, eliminarSesion } from "@/lib/actions/sesiones";
 import { formatearDiaLargo, instanteEnEspana } from "@/lib/fechas";
 import { cn } from "@/lib/utils";
 import { colorBarraOcupacion } from "./color-ocupacion";
+import { AnadirClientaDialogo } from "./anadir-clienta-dialogo";
 import type { Clase, Sesion, Reserva, Cliente, Usuario, Plan, EstadoAsistencia } from "@/lib/types";
 
 interface Props {
@@ -52,6 +53,8 @@ export function VistaDia({
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmandoQuitar, setConfirmandoQuitar] = useState<string | null>(null);
+  const [confirmandoEliminarSesion, setConfirmandoEliminarSesion] = useState<string | null>(null);
+  const [anadiendoA, setAnadiendoA] = useState<string | null>(null);
 
   const sesionesDelDia = sesiones
     .filter((s) => s.fecha === fecha)
@@ -84,6 +87,15 @@ export function VistaDia({
     });
   }
 
+  function eliminar(sesionId: string) {
+    setError(null);
+    setConfirmandoEliminarSesion(null);
+    startTransition(async () => {
+      const respuesta = await eliminarSesion(sesionId);
+      if (respuesta.error) setError(respuesta.error);
+    });
+  }
+
   if (sesionesDelDia.length === 0) {
     return (
       <div className="flex flex-col gap-4">
@@ -106,6 +118,7 @@ export function VistaDia({
         const inicio = instanteEnEspana(sesion.fecha, clase.horaInicio);
         const yaEmpezo = inicio.getTime() <= new Date(ahora).getTime();
         const faltanMenosDe24h = !yaEmpezo && inicio.getTime() - new Date(ahora).getTime() < 24 * 3600 * 1000;
+        const sinReservas = confirmadas.length === 0 && enEspera.length === 0;
 
         return (
           <Card
@@ -138,6 +151,16 @@ export function VistaDia({
                     >
                       {sesion.abierta ? "Cerrar" : "Reabrir"}
                     </Button>
+                    {sinReservas && confirmandoEliminarSesion !== sesion.id && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={pendiente}
+                        onClick={() => setConfirmandoEliminarSesion(sesion.id)}
+                      >
+                        Eliminar
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -147,6 +170,22 @@ export function VistaDia({
                   <p className="text-xs text-muted-foreground">
                     Cerrada: nadie nuevo puede reservar. Quien ya tiene plaza la conserva.
                   </p>
+                )}
+                {puedeQuitar && confirmandoEliminarSesion === sesion.id && (
+                  <div className="flex flex-col gap-2 rounded-md bg-muted p-2">
+                    <p className="text-xs">
+                      Se borra esta hora suelta (para un festivo o un ajuste puntual). El horario fijo del resto de
+                      semanas no cambia.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button variant="destructive" size="sm" disabled={pendiente} onClick={() => eliminar(sesion.id)}>
+                        Confirmar
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setConfirmandoEliminarSesion(null)}>
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
                 )}
                 <div className="flex items-center gap-2">
                   <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
@@ -237,7 +276,26 @@ export function VistaDia({
                   </div>
                 );
               })}
+
+              {puedeQuitar && !yaEmpezo && (
+                <Button variant="outline" size="sm" className="self-start" onClick={() => setAnadiendoA(sesion.id)}>
+                  Añadir clienta
+                </Button>
+              )}
             </CardContent>
+
+            {anadiendoA === sesion.id && (
+              <AnadirClientaDialogo
+                sesionId={sesion.id}
+                usuarios={usuarios}
+                clientesDisponibles={clientes.filter((c) => {
+                  if (c.estado !== "activo") return false;
+                  const yaApuntada = [...confirmadas, ...enEspera].some((r) => r.clienteId === c.id);
+                  return !yaApuntada;
+                })}
+                onCerrar={() => setAnadiendoA(null)}
+              />
+            )}
           </Card>
         );
       })}

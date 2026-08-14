@@ -61,7 +61,7 @@ export async function obtenerUsuarios(): Promise<Usuario[]> {
 
 export async function obtenerPlanes(): Promise<Plan[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("planes").select("id, nombre, precio, tipo, clases_incluidas");
+  const { data, error } = await supabase.from("planes").select("id, nombre, precio, tipo, clases_incluidas, activo");
   if (error) throw error;
   return (data ?? []).map((p) => ({
     id: p.id,
@@ -69,6 +69,7 @@ export async function obtenerPlanes(): Promise<Plan[]> {
     precio: p.precio,
     tipo: p.tipo,
     clasesIncluidas: p.clases_incluidas,
+    activo: p.activo,
   }));
 }
 
@@ -109,7 +110,7 @@ export async function obtenerReservas(): Promise<Reserva[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("reservas")
-    .select("id, sesion_id, cliente_id, estado, asistencia, cancelada_en, created_at");
+    .select("id, sesion_id, cliente_id, estado, asistencia, cancelada_en, created_at, bono_id");
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id,
@@ -119,6 +120,32 @@ export async function obtenerReservas(): Promise<Reserva[]> {
     asistencia: r.asistencia,
     canceladaEn: r.cancelada_en,
     createdAt: r.created_at,
+    bonoId: r.bono_id,
+  }));
+}
+
+// Solo las reservas de una clienta que le descontaron un credito de bono
+// (bono_id no nulo): es lo que alimenta la lista de "sesiones de bono
+// consumidas" de su ficha, acotada por cliente_id en vez de traer toda la
+// tabla como obtenerReservas().
+export async function obtenerReservasConBonoDeCliente(clienteId: string): Promise<Reserva[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("reservas")
+    .select("id, sesion_id, cliente_id, estado, asistencia, cancelada_en, created_at, bono_id")
+    .eq("cliente_id", clienteId)
+    .not("bono_id", "is", null)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    sesionId: r.sesion_id,
+    clienteId: r.cliente_id,
+    estado: r.estado,
+    asistencia: r.asistencia,
+    canceladaEn: r.cancelada_en,
+    createdAt: r.created_at,
+    bonoId: r.bono_id,
   }));
 }
 

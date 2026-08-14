@@ -10,12 +10,13 @@ import {
   obtenerSesiones,
   obtenerClases,
   obtenerHistorialDeCliente,
+  obtenerReservasConBonoDeCliente,
 } from "@/lib/supabase/queries";
 import { clientePorId, usuarioPorId } from "@/lib/selectors";
 
 export default async function AdminFichaClientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [clientes, usuarios, planes, pagos, bonos, sesiones, clases, historial] = await Promise.all([
+  const [clientes, usuarios, planes, pagos, bonos, sesiones, clases, historial, reservasConBono] = await Promise.all([
     obtenerClientes(),
     obtenerUsuarios(),
     obtenerPlanes(),
@@ -24,6 +25,7 @@ export default async function AdminFichaClientePage({ params }: { params: Promis
     obtenerSesiones(),
     obtenerClases(),
     obtenerHistorialDeCliente(id),
+    obtenerReservasConBonoDeCliente(id),
   ]);
 
   const cliente = clientePorId(clientes, id);
@@ -46,6 +48,8 @@ export default async function AdminFichaClientePage({ params }: { params: Promis
         historial={historial}
         sesiones={sesiones}
         clases={clases}
+        esAdmin
+        reservasConBono={reservasConBono}
       />
     </div>
   );

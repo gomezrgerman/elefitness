@@ -37,6 +37,10 @@ export function ClienteForm({ modo, cliente, usuario, usuarios, planes, onCerrar
   const [guardando, setGuardando] = useState(false);
 
   const entrenadores = usuarios.filter((u) => u.rol === "entrenador" || u.rol === "admin");
+  // Un plan retirado (precio antiguo) no se ofrece en altas nuevas, pero si
+  // la clienta ya lo tenia tiene que seguir viendolo en su propio desplegable
+  // al editarla -- si no, el Select se queda sin la opcion que ya tenia.
+  const planesDisponibles = planes.filter((plan) => plan.activo || plan.id === cliente?.planId);
 
   async function guardar() {
     const resultado = clienteFormSchema.safeParse({
@@ -94,11 +98,11 @@ export function ClienteForm({ modo, cliente, usuario, usuarios, planes, onCerrar
             <Select value={planId} onValueChange={(valor) => valor && setPlanId(valor)}>
               <SelectTrigger id="plan">
                 <SelectValue placeholder="Selecciona un plan">
-                  {(valor: string) => planes.find((plan) => plan.id === valor)?.nombre ?? "Selecciona un plan"}
+                  {(valor: string) => planesDisponibles.find((plan) => plan.id === valor)?.nombre ?? "Selecciona un plan"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {planes.map((plan) => (
+                {planesDisponibles.map((plan) => (
                   <SelectItem key={plan.id} value={plan.id}>
                     {plan.nombre}
                   </SelectItem>

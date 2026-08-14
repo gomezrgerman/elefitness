@@ -111,6 +111,7 @@ Grabación completa: https://fathom.video/share/Ldzy8nqYrXjJQCA5mQxMMZknvnrtc9Hm
 - **Cancelación con 24h de antelación** → genera un **bono de recuperación** (crédito distinto del bono normal):
   - Caduca a las **2 semanas** de emitido (evita acumulación a largo plazo).
   - Tope mensual: **1/mes** si la clienta entrena 1-2 días/semana, **2/mes** si entrena 3+ días/semana.
+  - **Corregido el 2026-08-14 (ver punto 9): esto solo aplica a clientas de mensualidad.** Las de bono no reciben bono de recuperación — se les devuelve directamente el crédito consumido.
 - **Asistencia real** (check-in en clase) como estado separado de "reserva confirmada" — las reglas de bono/deuda se disparan al marcar asistencia, no al reservar.
 - **Sistema de deuda**: sesión perdida sin cancelar a tiempo se descuenta automáticamente del próximo bono que compre la clienta.
 - **Aforo oculto al cliente**: solo ve "Libre" / "Completo", nunca el nº exacto de plazas (para que no elijan clases con pocos alumnos). Elena puede fijar además un **límite efectivo por debajo del aforo_max real** para un día concreto (ej. bajar plazas sin que el cliente vea que existe ese límite) — para él sigue siendo solo Libre/Completo.
@@ -172,6 +173,72 @@ los dos roles (admin/cliente), y el CRUD de clientes con ficha (datos,
 plan, notas de rutina). Usa server actions, valida con zod, y deja seeds
 de desarrollo con 1 centro, 2 clases y 3 clientes de ejemplo.
 ```
+
+---
+
+## 9. Corrección de reglas de negocio confirmada por Elena (2026-08-14)
+
+Elena respondió por audio a varias preguntas pendientes. Una de las respuestas corrigió una regla de negocio que se había construido al revés en el Sprint 3 (migración 0017). El resto son piezas nuevas que estaban bloqueadas hasta tener su respuesta.
+
+### Regla de cancelación (invierte lo que decía el punto 7)
+
+La compensación por cancelar con antelación depende del **tipo de plan**, no al revés de como se había implementado:
+
+- **Clienta de BONO**: cancela con **≥24h** → se le **devuelve el crédito** que se había descontado al reservar. No se emite ningún bono de recuperación ni cuenta contra ningún tope. Cancela con **<24h** → el crédito se pierde (sin cambios).
+- **Clienta de MENSUALIDAD**: cancela con **≥24h** → se le emite un **bono de recuperación** que caduca el **último día del mes natural en que se genera** (corregido el 2026-08-14: no era un plazo fijo de días), con el tope mensual de siempre según `dias_semana_habituales` (1/mes si 1-2 días, 2/mes si 3+). Cancela con **<24h** → no pasa nada (una mensual no consume créditos, no hay nada que compensar).
+
+Antes estaba construido justo al revés: el bono de recuperación se emitía solo a clientas de bono (sin devolverles nunca el crédito original), y las mensuales no recibían ninguna compensación. Para poder devolver el crédito exacto de una clienta de bono hizo falta añadir `reservas.bono_id`, que registra de qué bono salió el crédito al reservar — antes no quedaba rastro de cuál se había descontado.
+
+**Resuelto el 2026-08-14**: cuando Elena saca a una clienta de bono de una clase, el crédito se comporta exactamente igual que si cancelara la propia clienta — con ≥24h se devuelve, con <24h se pierde. No hace falta ninguna regla especial para cuando es Elena quien la saca: `cancelar_reserva` ya no distingue quién la llama, solo el plan y la antelación, así que esto ya estaba resuelto sin cambio de código.
+
+### `bonos_cliente.fecha_caducidad` editable a mano
+
+Elena necesita poder fijar ella la caducidad de un bono que asigna manualmente, como hacía en Harbiz — hoy `crear_bono` siempre la calculaba sola (+3 meses normal, fin del mes natural de compra para recuperación). Ahora acepta una fecha opcional que la sobreescribe. Tiene una pantalla mínima nueva en la ficha de la clienta ("Asignar bono") para poder usarlo.
+
+### `copiar_semana` ya no apunta a nadie
+
+Copiar la semana debe crear únicamente las horas del horario fijo (día/hora/aforo/entrenador, vía la clase-plantilla) — **no debe crear ninguna reserva**, ni de clientas de bono ni de mensualidad. Antes copiaba las reservas confirmadas de las mensuales (decisión tomada durante el Sprint de reglas de negocio, ver punto 7); Elena la revirtió: cada clienta reserva su plaza, la copia solo abre el hueco.
+
+Además, el calendario ahora permite **eliminar una sesión suelta** después de copiar la semana (para festivos y ajustes puntuales), sin tocar el resto del horario fijo. Bloqueado si la sesión tiene reservas activas — hay que cancelarlas primero, para que cada clienta reciba la compensación que le corresponda en vez de perderla en cascada.
+
+### Explícitamente fuera todavía (no adivinar, falta respuesta de Elena)
+
+- El sistema de deuda por inasistencia (ya existe `clientes.deuda_creditos` y se descuenta al crear un bono nuevo, pero no se ha tocado ni ampliado con esta ronda de respuestas).
+
+Las otras dos dudas que quedaron abiertas en la primera tanda de respuestas (crédito al sacar con <24h, y "mover" una reserva) las cerró Elena en la segunda tanda — ver punto 10.
+
+## 10. Cierre del proyecto — segunda tanda de respuestas de Elena (2026-08-14)
+
+Misma sesión de audios, resolviendo lo que quedaba abierto del punto 9 y añadiendo el catálogo de precios real.
+
+### Ficha de clienta: sesiones de bono consumidas
+
+Nueva sección en la ficha (solo panel de Elena) con la lista de reservas que descontaron un crédito de bono, cada una con dos acciones manuales independientes: **devolver crédito de esta sesión** (`creditos_usados -= 1` sobre el bono al que se cargó) y **añadir sesión extra al bono** (`creditos_totales += 1`). No usa tabla nueva, se apoya en `reservas.bono_id` + `bonos_cliente`.
+
+### "Mover reserva" resuelto sin función dedicada
+
+No hacía falta ningún botón de "mover". Lo que faltaba era que el panel de admin pudiera **crear una reserva en nombre de una clienta**, no solo cancelarla — ya existía la mitad (cancelar), y `reservar_sesion` ya soportaba que el admin reserve en nombre de cualquier clienta (es el mismo mecanismo que le deja reservar en una sesión cerrada). Solo faltaba la pantalla: botón "Añadir clienta" en cada sesión de la vista de día del admin. Con eso, Elena cancela en un grupo y añade en otro manualmente.
+
+### Catálogo real de planes (`planes.activo`)
+
+- **Mensuales**: Básico 50€ (1 día/semana), Fit 90€ (2 días/semana), Fit Plus 130€ (3 días/semana). `clases_incluidas` queda como dato informativo (1/2/3) — **sin ningún límite automático que impida reservar más clases de las que incluye el plan**, eso sigue sin construirse a propósito.
+- **Bono**: dos precios conviven porque cambió con el tiempo — "Bono 12 sesiones" a 120€ es el precio antiguo, ya no se ofrece de alta a clientas nuevas pero sigue siendo válido para quien ya lo tenía; "Bono 10 sesiones" a 130€ es el que se ofrece hoy por defecto. Se añade también "Sesión de prueba" (1 clase, 15€) para gente nueva, mismo mecanismo de `bonos_cliente`, sin lógica especial.
+- Se añadió `planes.activo boolean` (migración 0019) para poder retirar un plan de los selectores de alta nueva sin romper los `plan_id` que ya lo referencian desde `clientes`, `bonos_cliente` o `pagos`. **Regla operativa para el futuro: un cambio de precio siempre crea una fila nueva en `planes`, nunca edita el precio de una existente** — si no, cambiaría retroactivamente lo que ya pagan las clientas con el plan antiguo.
+- `bonos_cliente.fecha_caducidad` por defecto sigue siendo compra + 3 meses (ver punto 9), sin tope de cancelaciones dentro de esos 3 meses para clientas de bono — solo la regla de 24h.
+- El catálogo real (`scripts/seed.ts`) sustituye a los dos planes de ejemplo ("Cuota mensual" 45€, "Bono 10 clases" 80€). Aplicar requiere `npm run reset:dev` + `npm run seed` contra el proyecto real — es destructivo con los datos de demo actuales, así que no se ha ejecutado solo, queda pendiente de que Germán lo lance cuando le venga bien.
+
+### Restricción importante para cuando se construya Stripe (Sprint 3, todavía sin empezar)
+
+Nada de enlace público de compra de bono — ni en la landing ni en ningún sitio sin login. La compra/renovación se hace **solo autenticada, desde dentro de la app**: la clienta pulsa "renovar" y un server action genera la Stripe Checkout Session en el momento, usando el `stripe_price_id` del plan que tiene asignado **ella en concreto**, no un precio genérico. Motivo: los precios han cambiado con el tiempo (ver el `planes.activo` de arriba) y no todas las clientas pagan lo mismo — quien se dio de alta con el precio antiguo lo conserva hasta que Elena la cambie de plan a mano. Anotado aquí para que quien construya el Sprint 3 no lo resuelva con un link genérico.
+
+### Nota de diseño para Sprint 5 (no construir todavía)
+
+En la ficha de clienta: para bonos, mostrar si está pagado, fecha de compra y lista de fechas de sesiones usadas (la lista de "sesiones de bono consumidas" de arriba ya cubre buena parte de esto). Para todas las clientas, un historial mensual de asistencia que incluya también las reservas sin asistencia marcada, no solo las que sí se marcaron.
+
+### Sigue explícitamente fuera (no adivinar)
+
+- El sistema de deuda por inasistencia.
+- Cualquier límite automático que impida reservar más clases a la semana de las que incluye el plan mensual — `clases_incluidas` en los planes mensuales es solo dato informativo.
 
 ---
 

@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Cliente, Usuario, Plan, Clase, Sesion, Reserva, Pago, BonoCliente, MovimientoHistorial } from "@/lib/types";
+import type { Cliente, Usuario, Plan, Clase, Sesion, Reserva, Pago, BonoCliente, MovimientoHistorial, FranjaHoraria } from "@/lib/types";
 
 export async function obtenerClientes(): Promise<Cliente[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("clientes")
-    .select("id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, created_at");
+    .select(
+      "id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, entrenador_restringido_id, created_at"
+    );
   if (error) throw error;
   return (data ?? []).map((c) => ({
     id: c.id,
@@ -15,6 +17,7 @@ export async function obtenerClientes(): Promise<Cliente[]> {
     notasRutina: c.notas_rutina,
     diasSemanaHabituales: c.dias_semana_habituales,
     deudaCreditos: c.deuda_creditos,
+    entrenadorRestringidoId: c.entrenador_restringido_id,
     createdAt: c.created_at,
   }));
 }
@@ -23,7 +26,9 @@ export async function obtenerClienteDeUsuario(usuarioId: string): Promise<Client
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("clientes")
-    .select("id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, created_at")
+    .select(
+      "id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, entrenador_restringido_id, created_at"
+    )
     .eq("usuario_id", usuarioId)
     .maybeSingle();
   if (error) throw error;
@@ -36,6 +41,7 @@ export async function obtenerClienteDeUsuario(usuarioId: string): Promise<Client
     notasRutina: data.notas_rutina,
     diasSemanaHabituales: data.dias_semana_habituales,
     deudaCreditos: data.deuda_creditos,
+    entrenadorRestringidoId: data.entrenador_restringido_id,
     createdAt: data.created_at,
   };
 }
@@ -87,13 +93,14 @@ export async function obtenerSesiones(): Promise<Sesion[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sesiones")
-    .select("id, clase_id, fecha, aforo_efectivo, created_at");
+    .select("id, clase_id, fecha, aforo_efectivo, abierta, created_at");
   if (error) throw error;
   return (data ?? []).map((s) => ({
     id: s.id,
     claseId: s.clase_id,
     fecha: s.fecha,
     aforoEfectivo: s.aforo_efectivo,
+    abierta: s.abierta,
     createdAt: s.created_at,
   }));
 }
@@ -181,5 +188,20 @@ export async function obtenerHistorialDeCliente(clienteId: string): Promise<Movi
     clienteId: m.cliente_id,
     evento: m.evento,
     creadoEn: m.creado_en,
+  }));
+}
+
+export async function obtenerFranjas(): Promise<FranjaHoraria[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("franjas_horarias")
+    .select("id, hora_inicio, hora_fin, orden")
+    .order("orden", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((f) => ({
+    id: f.id,
+    horaInicio: f.hora_inicio.slice(0, 5),
+    horaFin: f.hora_fin.slice(0, 5),
+    orden: f.orden,
   }));
 }

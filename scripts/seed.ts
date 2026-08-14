@@ -54,6 +54,32 @@ const FRANJAS: FranjaHoraria[] = [
   { horaInicio: "20:10", horaFin: "21:00", dias: ["lunes", "martes", "miercoles", "jueves"] },
 ];
 
+// Rejilla completa del centro: las 15 franjas horarias que existen como
+// concepto, con independencia de si hoy tienen una clase fija encima. FRANJAS
+// (arriba) genera las 51 clases del horario fijo; esta lista siembra la tabla
+// franjas_horarias, que es lo que Elena ve cuando busca un hueco para abrir.
+// Son listas deliberadamente distintas: las tres franjas de mediodia
+// (11:10-12:00, 12:00-12:50, 13:00-13:50) no aparecen en FRANJAS porque no
+// tienen ninguna clase, pero si pertenecen a la rejilla -- son justo las que
+// Elena podria abrir bajo demanda.
+const REJILLA_FRANJAS: { horaInicio: string; horaFin: string }[] = [
+  { horaInicio: "07:00", horaFin: "07:50" },
+  { horaInicio: "07:50", horaFin: "08:40" },
+  { horaInicio: "08:40", horaFin: "09:30" },
+  { horaInicio: "09:30", horaFin: "10:20" },
+  { horaInicio: "11:10", horaFin: "12:00" },
+  { horaInicio: "12:00", horaFin: "12:50" },
+  { horaInicio: "13:00", horaFin: "13:50" },
+  { horaInicio: "13:50", horaFin: "14:40" },
+  { horaInicio: "14:40", horaFin: "15:30" },
+  { horaInicio: "16:00", horaFin: "16:50" },
+  { horaInicio: "16:50", horaFin: "17:40" },
+  { horaInicio: "17:40", horaFin: "18:30" },
+  { horaInicio: "18:30", horaFin: "19:20" },
+  { horaInicio: "19:20", horaFin: "20:10" },
+  { horaInicio: "20:10", horaFin: "21:00" },
+];
+
 const NUMERO_A_DIA = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 
 function diaDeFecha(fecha: string): string {
@@ -72,6 +98,15 @@ async function main() {
 
   const { error: errorCentro } = await admin.from("centro").insert({ nombre: "Elefitness", color_marca: "#16A34A" });
   if (errorCentro) throw errorCentro;
+
+  const franjasAInsertar = REJILLA_FRANJAS.map((franja, indice) => ({
+    hora_inicio: franja.horaInicio,
+    hora_fin: franja.horaFin,
+    orden: indice + 1,
+  }));
+  const { error: errorFranjas } = await admin.from("franjas_horarias").insert(franjasAInsertar);
+  if (errorFranjas) throw errorFranjas;
+  console.log(`Franjas horarias creadas: ${franjasAInsertar.length}`);
 
   const idsPorEmail = new Map<string, string>();
   for (const u of usuarios) {

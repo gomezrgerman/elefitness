@@ -1,4 +1,5 @@
 import { CalendarioClases } from "@/components/calendario/calendario-clases";
+import { RejillaHuecos } from "@/components/calendario/rejilla-huecos";
 import { EstadoVacio } from "@/components/estado-vacio";
 import {
   obtenerClases,
@@ -7,17 +8,19 @@ import {
   obtenerClientes,
   obtenerUsuarios,
   obtenerPlanes,
+  obtenerFranjas,
 } from "@/lib/supabase/queries";
 import { hoyEnEspana } from "@/lib/fechas";
 
 export default async function AdminClasesPage() {
-  const [clases, sesiones, reservas, clientes, usuarios, planes] = await Promise.all([
+  const [clases, sesiones, reservas, clientes, usuarios, planes, franjas] = await Promise.all([
     obtenerClases(),
     obtenerSesiones(),
     obtenerReservas(),
     obtenerClientes(),
     obtenerUsuarios(),
     obtenerPlanes(),
+    obtenerFranjas(),
   ]);
 
   const hoy = hoyEnEspana();
@@ -46,6 +49,7 @@ export default async function AdminClasesPage() {
           puedeQuitar
         />
       )}
+      <RejillaHuecos hoy={hoy} franjas={franjas} clases={clases} sesiones={sesiones} usuarios={usuarios} puedeAbrir />
     </div>
   );
 }

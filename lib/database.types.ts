@@ -132,6 +132,7 @@ export type Database = {
           created_at: string
           deuda_creditos: number
           dias_semana_habituales: number
+          entrenador_restringido_id: string | null
           estado: Database["public"]["Enums"]["estado_cliente_enum"]
           id: string
           notas_rutina: string
@@ -142,6 +143,7 @@ export type Database = {
           created_at?: string
           deuda_creditos?: number
           dias_semana_habituales?: number
+          entrenador_restringido_id?: string | null
           estado?: Database["public"]["Enums"]["estado_cliente_enum"]
           id?: string
           notas_rutina?: string
@@ -152,6 +154,7 @@ export type Database = {
           created_at?: string
           deuda_creditos?: number
           dias_semana_habituales?: number
+          entrenador_restringido_id?: string | null
           estado?: Database["public"]["Enums"]["estado_cliente_enum"]
           id?: string
           notas_rutina?: string
@@ -159,6 +162,13 @@ export type Database = {
           usuario_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "clientes_entrenador_restringido_id_fkey"
+            columns: ["entrenador_restringido_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clientes_plan_id_fkey"
             columns: ["plan_id"]
@@ -174,6 +184,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      franjas_horarias: {
+        Row: {
+          hora_fin: string
+          hora_inicio: string
+          id: string
+          orden: number
+        }
+        Insert: {
+          hora_fin: string
+          hora_inicio: string
+          id?: string
+          orden: number
+        }
+        Update: {
+          hora_fin?: string
+          hora_inicio?: string
+          id?: string
+          orden?: number
+        }
+        Relationships: []
       }
       pagos: {
         Row: {
@@ -351,6 +382,7 @@ export type Database = {
       }
       sesiones: {
         Row: {
+          abierta: boolean
           aforo_efectivo: number | null
           clase_id: string
           created_at: string
@@ -358,6 +390,7 @@ export type Database = {
           id: string
         }
         Insert: {
+          abierta?: boolean
           aforo_efectivo?: number | null
           clase_id: string
           created_at?: string
@@ -365,6 +398,7 @@ export type Database = {
           id?: string
         }
         Update: {
+          abierta?: boolean
           aforo_efectivo?: number | null
           clase_id?: string
           created_at?: string
@@ -462,6 +496,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      hoy_en_espana: { Args: never; Returns: string }
       marcar_asistencia: {
         Args: {
           p_asistencia: Database["public"]["Enums"]["estado_asistencia_enum"]

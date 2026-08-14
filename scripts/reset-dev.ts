@@ -18,6 +18,7 @@ const TABLAS = [
   "clientes",
   "clases",
   "planes",
+  "franjas_horarias",
 ] as const;
 
 const CONFIRMACION = "si-borrar-todo";

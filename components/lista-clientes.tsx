@@ -163,12 +163,13 @@ export function ListaClientes({ clientes, usuarios, planes, basePath, soloLectur
         </TableBody>
       </Table>
 
-      {creando && <ClienteForm modo="crear" planes={planes} onCerrar={() => setCreando(false)} />}
+      {creando && <ClienteForm modo="crear" usuarios={usuarios} planes={planes} onCerrar={() => setCreando(false)} />}
       {clienteEnEdicion && (
         <ClienteForm
           modo="editar"
           cliente={clienteEnEdicion}
           usuario={usuarioPorId(usuarios, clienteEnEdicion.usuarioId)}
+          usuarios={usuarios}
           planes={planes}
           onCerrar={() => setClienteEnEdicion(null)}
         />

@@ -11,23 +11,32 @@ import { clienteFormSchema } from "@/lib/validaciones";
 import { altaCliente, actualizarCliente } from "@/lib/actions/clientes";
 import type { Cliente, Usuario, Plan } from "@/lib/types";
 
+// Base UI Select no admite value="" para representar "sin seleccion", asi
+// que usamos este centinela para la opcion "Cualquiera" y lo traducimos a
+// null (sin restriccion de entrenador) justo antes de validar.
+const CUALQUIER_ENTRENADOR = "cualquiera";
+
 interface Props {
   modo: "crear" | "editar";
   cliente?: Cliente;
   usuario?: Usuario;
+  usuarios: Usuario[];
   planes: Plan[];
   onCerrar: () => void;
 }
 
-export function ClienteForm({ modo, cliente, usuario, planes, onCerrar }: Props) {
+export function ClienteForm({ modo, cliente, usuario, usuarios, planes, onCerrar }: Props) {
   const [nombre, setNombre] = useState(usuario?.nombre ?? "");
   const [email, setEmail] = useState(usuario?.email ?? "");
   const [telefono, setTelefono] = useState(usuario?.telefono ?? "");
   const [planId, setPlanId] = useState(cliente?.planId ?? planes[0]?.id ?? "");
   const [notasRutina, setNotasRutina] = useState(cliente?.notasRutina ?? "");
   const [diasSemanaHabituales, setDiasSemanaHabituales] = useState(String(cliente?.diasSemanaHabituales ?? 1));
+  const [entrenadorId, setEntrenadorId] = useState(cliente?.entrenadorRestringidoId ?? CUALQUIER_ENTRENADOR);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+
+  const entrenadores = usuarios.filter((u) => u.rol === "entrenador" || u.rol === "admin");
 
   async function guardar() {
     const resultado = clienteFormSchema.safeParse({
@@ -37,6 +46,7 @@ export function ClienteForm({ modo, cliente, usuario, planes, onCerrar }: Props)
       planId,
       notasRutina,
       diasSemanaHabituales,
+      entrenadorRestringidoId: entrenadorId === CUALQUIER_ENTRENADOR ? null : entrenadorId,
     });
     if (!resultado.success) {
       setError(resultado.error.issues[0]?.message ?? "Datos invalidos");
@@ -50,6 +60,7 @@ export function ClienteForm({ modo, cliente, usuario, planes, onCerrar }: Props)
             planId: resultado.data.planId,
             notasRutina: resultado.data.notasRutina,
             diasSemanaHabituales: resultado.data.diasSemanaHabituales,
+            entrenadorRestringidoId: resultado.data.entrenadorRestringidoId,
           });
     setGuardando(false);
     if (respuesta.error) {
@@ -105,6 +116,28 @@ export function ClienteForm({ modo, cliente, usuario, planes, onCerrar }: Props)
               value={diasSemanaHabituales}
               onChange={(e) => setDiasSemanaHabituales(e.target.value)}
             />
+          </div>
+          <div>
+            <Label htmlFor="entrenador">Entrena con</Label>
+            <Select value={entrenadorId} onValueChange={(valor) => valor && setEntrenadorId(valor)}>
+              <SelectTrigger id="entrenador">
+                <SelectValue placeholder="Cualquiera">
+                  {(valor: string) =>
+                    valor === CUALQUIER_ENTRENADOR
+                      ? "Cualquiera"
+                      : usuarios.find((u) => u.id === valor)?.nombre ?? "Cualquiera"
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={CUALQUIER_ENTRENADOR}>Cualquiera</SelectItem>
+                {entrenadores.map((entrenador) => (
+                  <SelectItem key={entrenador.id} value={entrenador.id}>
+                    {entrenador.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label htmlFor="notas">Notas de rutina</Label>

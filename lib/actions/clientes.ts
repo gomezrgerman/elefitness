@@ -15,6 +15,7 @@ const actualizarClienteSchema = z.object({
     .int("Los dias por semana deben ser un numero entero")
     .min(1, "Minimo 1 dia por semana")
     .max(7, "Maximo 7 dias por semana"),
+  entrenadorRestringidoId: z.string().uuid("Entrenador invalido").nullable(),
 });
 
 export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
@@ -22,7 +23,7 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
   if (!resultado.success) {
     return { error: resultado.error.issues[0]?.message ?? "Datos invalidos" };
   }
-  const { nombre, email, telefono, planId, notasRutina, diasSemanaHabituales } = resultado.data;
+  const { nombre, email, telefono, planId, notasRutina, diasSemanaHabituales, entrenadorRestringidoId } = resultado.data;
 
   const supabase = await createClient();
   const {
@@ -62,6 +63,7 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
       plan_id: planId,
       notas_rutina: notasRutina,
       dias_semana_habituales: diasSemanaHabituales,
+      entrenador_restringido_id: entrenadorRestringidoId,
     })
     .select()
     .single();
@@ -138,7 +140,7 @@ export async function reactivarCliente(clienteId: string): Promise<{ error?: str
 
 export async function actualizarCliente(
   clienteId: string,
-  datos: { planId: string; notasRutina: string; diasSemanaHabituales: number }
+  datos: { planId: string; notasRutina: string; diasSemanaHabituales: number; entrenadorRestringidoId: string | null }
 ): Promise<{ error?: string }> {
   const resultado = actualizarClienteSchema.safeParse(datos);
   if (!resultado.success) {
@@ -156,6 +158,7 @@ export async function actualizarCliente(
       plan_id: resultado.data.planId,
       notas_rutina: resultado.data.notasRutina,
       dias_semana_habituales: resultado.data.diasSemanaHabituales,
+      entrenador_restringido_id: resultado.data.entrenadorRestringidoId,
     })
     .eq("id", clienteId)
     .select();

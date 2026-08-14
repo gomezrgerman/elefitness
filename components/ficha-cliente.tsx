@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BadgeEstado } from "./badge-estado";
-import { planPorId, creditosRestantes } from "@/lib/selectors";
+import { planPorId, usuarioPorId, creditosRestantes } from "@/lib/selectors";
 import { formatearDiaLargo, hoyEnEspana } from "@/lib/fechas";
 import type {
   Cliente, Usuario, Plan, Pago, BonoCliente, MovimientoHistorial, Sesion, Clase,
@@ -10,6 +10,7 @@ import type {
 interface Props {
   cliente: Cliente;
   usuario: Usuario;
+  usuarios: Usuario[];
   planes: Plan[];
   pagos: Pago[];
   bonos: BonoCliente[];
@@ -28,8 +29,9 @@ const ETIQUETA_EVENTO: Record<string, string> = {
   asistencia_corregida: "Asistencia corregida",
 };
 
-export function FichaCliente({ cliente, usuario, planes, pagos, bonos, historial, sesiones, clases }: Props) {
+export function FichaCliente({ cliente, usuario, usuarios, planes, pagos, bonos, historial, sesiones, clases }: Props) {
   const plan = planPorId(planes, cliente.planId);
+  const entrenador = cliente.entrenadorRestringidoId ? usuarioPorId(usuarios, cliente.entrenadorRestringidoId) : undefined;
   const hoy = hoyEnEspana();
   const bonosActivos = bonos.filter((b) => b.activo && (!b.fechaCaducidad || b.fechaCaducidad >= hoy));
 
@@ -61,6 +63,10 @@ export function FichaCliente({ cliente, usuario, planes, pagos, bonos, historial
           <p>
             <span className="text-muted-foreground">Dias por semana: </span>
             {cliente.diasSemanaHabituales}
+          </p>
+          <p>
+            <span className="text-muted-foreground">Entrena con: </span>
+            {entrenador?.nombre ?? "Cualquiera"}
           </p>
           {cliente.deudaCreditos > 0 && (
             <p className="text-amber-700">

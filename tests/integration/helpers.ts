@@ -72,7 +72,7 @@ export interface FixtureSesion {
 // no cambia segun el dia en que se ejecute la suite.
 export async function crearClaseConSesion(
   admin: AdminClient,
-  opciones: { offsetHoras: number; aforoMax?: number; aforoEfectivo?: number | null }
+  opciones: { offsetHoras: number; aforoMax?: number; aforoEfectivo?: number | null; recurrente?: boolean }
 ): Promise<FixtureSesion> {
   const { fecha, hora, dia } = instanteMadrid(opciones.offsetHoras);
 
@@ -92,7 +92,7 @@ export async function crearClaseConSesion(
       hora_fin: horaFin,
       aforo_max: opciones.aforoMax ?? 5,
       entrenador_id: entrenador.id,
-      recurrente: false,
+      recurrente: opciones.recurrente ?? true,
     })
     .select()
     .single();

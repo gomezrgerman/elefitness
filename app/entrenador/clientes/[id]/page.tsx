@@ -39,6 +39,7 @@ export default async function EntrenadorFichaClientePage({ params }: { params: P
       <FichaCliente
         cliente={cliente}
         usuario={usuario}
+        usuarios={usuarios}
         planes={planes}
         pagos={pagos.filter((p) => p.clienteId === cliente.id)}
         bonos={bonos.filter((b) => b.clienteId === cliente.id)}

@@ -19,7 +19,7 @@ import {
   sumarMeses,
 } from "@/lib/fechas";
 import { cn } from "@/lib/utils";
-import type { Clase, Sesion, Reserva } from "@/lib/types";
+import type { Clase, Sesion, Reserva, Usuario } from "@/lib/types";
 
 interface Props {
   clienteId: string;
@@ -31,6 +31,9 @@ interface Props {
   clases: Clase[];
   sesiones: Sesion[];
   reservas: Reserva[];
+  // Solo id y nombre cruzan al componente cliente: es lo unico que la
+  // pantalla necesita para mostrar quien da la clase.
+  usuarios: Pick<Usuario, "id" | "nombre">[];
 }
 
 const CABECERAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -42,7 +45,16 @@ function sesionesDelDia(clases: Clase[], sesiones: Sesion[], fecha: string): { s
     .filter((x): x is { sesion: Sesion; clase: Clase } => Boolean(x.clase));
 }
 
-export function ReservaCliente({ clienteId, hoy, limite, sesionesLibres, clases, sesiones, reservas }: Props) {
+export function ReservaCliente({
+  clienteId,
+  hoy,
+  limite,
+  sesionesLibres,
+  clases,
+  sesiones,
+  reservas,
+  usuarios,
+}: Props) {
   const ahora = new Date();
 
   // Solo sesiones reservables: dentro de la ventana [hoy, limite] y con la
@@ -70,6 +82,9 @@ export function ReservaCliente({ clienteId, hoy, limite, sesionesLibres, clases,
   const [mes, setMes] = useState(() => diaInicial.slice(0, 7) + "-01");
   const [pendiente, setPendiente] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Reserva cuya cancelacion esta pendiente de confirmar. Solo se usa para
+  // sesiones cerradas: cancelar una abierta sigue siendo un solo toque.
+  const [confirmandoCancelar, setConfirmandoCancelar] = useState<string | null>(null);
   const { toast } = useToast();
 
   const hayFuturo = sumarDias(limite, 1) > hoy;
@@ -96,6 +111,7 @@ export function ReservaCliente({ clienteId, hoy, limite, sesionesLibres, clases,
 
   function cancelar(reservaId: string) {
     setError(null);
+    setConfirmandoCancelar(null);
     setPendiente(true);
     void (async () => {
       const respuesta = await cancelarReserva(reservaId);
@@ -107,6 +123,16 @@ export function ReservaCliente({ clienteId, hoy, limite, sesionesLibres, clases,
         toast("Reserva cancelada", "info");
       }
     })();
+  }
+
+  function iniciarCancelacion(sesion: Sesion, reservaId: string) {
+    // La sesion cerrada es la unica que necesita el aviso: si esta abierta,
+    // cancelar sigue funcionando en un solo toque, igual que antes.
+    if (sesion.abierta) {
+      cancelar(reservaId);
+    } else {
+      setConfirmandoCancelar(reservaId);
+    }
   }
 
   const visibles = sesionesReservables(dia);
@@ -220,42 +246,74 @@ export function ReservaCliente({ clienteId, hoy, limite, sesionesLibres, clases,
                 {visibles.map(({ sesion, clase }) => {
                   const hayHueco = sesionesLibres[sesion.id] ?? false;
                   const miReserva = reservaActivaDeClienteEnSesion(reservas, clienteId, sesion.id);
+                  const entrenador = usuarios.find((u) => u.id === clase.entrenadorId);
                   return (
                     <li
                       key={sesion.id}
                       className={cn(
-                        "flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3",
+                        "flex flex-col gap-2 rounded-xl border p-3",
                         hayHueco ? "border-emerald-500/40 bg-emerald-500/10" : "border-red-500/40 bg-red-500/10"
                       )}
                     >
-                      <div>
-                        <p className="text-sm font-medium">
-                          {clase.horaInicio} – {clase.horaFin}
-                        </p>
-                        <p className={cn("text-xs", hayHueco ? "text-emerald-400" : "text-red-400")}>
-                          {hayHueco ? "Disponible" : "Completo"}
-                        </p>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium">
+                            {clase.horaInicio} – {clase.horaFin}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{entrenador?.nombre ?? "—"}</p>
+                          <p className={cn("text-xs", hayHueco ? "text-emerald-400" : "text-red-400")}>
+                            {hayHueco ? "Disponible" : "Completo"}
+                          </p>
+                        </div>
+
+                        {miReserva ? (
+                          <div className="flex items-center gap-2">
+                            <BadgeEstado estado={miReserva.estado} />
+                            <Button
+                              variant="outline"
+                              disabled={pendiente}
+                              onClick={() => iniciarCancelacion(sesion, miReserva.id)}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            disabled={pendiente}
+                            variant={hayHueco ? "default" : "outline"}
+                            className={cn(
+                              !hayHueco &&
+                                "border-red-500/50 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:text-red-200"
+                            )}
+                            onClick={() => reservar(sesion.id)}
+                          >
+                            {hayHueco ? "Reservar" : "Lista de espera"}
+                          </Button>
+                        )}
                       </div>
 
-                      {miReserva ? (
-                        <div className="flex items-center gap-2">
-                          <BadgeEstado estado={miReserva.estado} />
-                          <Button variant="outline" disabled={pendiente} onClick={() => cancelar(miReserva.id)}>
-                            Cancelar
-                          </Button>
+                      {miReserva && confirmandoCancelar === miReserva.id && (
+                        <div className="flex flex-col gap-2 rounded-lg bg-muted p-2">
+                          <p className="text-xs">
+                            Esta hora está cerrada: si cancelas, pierdes la plaza y no podrás volver a reservarla tú
+                            sola, tendrás que hablar con Elena. El crédito de recuperación, si te corresponde,
+                            depende de tu plan, de cancelar con más de 24h de antelación y de cuántas ya hayas usado
+                            este mes.
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              disabled={pendiente}
+                              onClick={() => cancelar(miReserva.id)}
+                            >
+                              Confirmar cancelación
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setConfirmandoCancelar(null)}>
+                              Volver
+                            </Button>
+                          </div>
                         </div>
-                      ) : (
-                        <Button
-                          disabled={pendiente}
-                          variant={hayHueco ? "default" : "outline"}
-                          className={cn(
-                            !hayHueco &&
-                              "border-red-500/50 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:text-red-200"
-                          )}
-                          onClick={() => reservar(sesion.id)}
-                        >
-                          {hayHueco ? "Reservar" : "Lista de espera"}
-                        </Button>
                       )}
                     </li>
                   );

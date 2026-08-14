@@ -140,7 +140,7 @@ export function VistaDia({
                       {puedeQuitar && !yaEmpezo && confirmandoQuitar !== reserva.id && (
                         <Button
                           variant="ghost"
-                          size="sm"
+                          size="default"
                           disabled={pendiente}
                           onClick={() => setConfirmandoQuitar(reserva.id)}
                         >
@@ -157,10 +157,10 @@ export function VistaDia({
                             : "Se le libera la plaza y entrara quien este primero en la lista de espera."}
                         </p>
                         <div className="flex gap-2">
-                          <Button variant="destructive" size="sm" disabled={pendiente} onClick={() => quitar(reserva.id)}>
+                          <Button variant="destructive" size="default" disabled={pendiente} onClick={() => quitar(reserva.id)}>
                             Confirmar
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => setConfirmandoQuitar(null)}>
+                          <Button variant="outline" size="default" onClick={() => setConfirmandoQuitar(null)}>
                             Cancelar
                           </Button>
                         </div>
@@ -171,7 +171,7 @@ export function VistaDia({
                       {ESTADOS.map(({ valor, etiqueta }) => (
                         <Button
                           key={valor}
-                          size="sm"
+                          size="default"
                           variant={reserva.asistencia === valor ? "default" : "outline"}
                           disabled={pendiente || !yaEmpezo}
                           onClick={() => cambiarAsistencia(reserva.id, valor)}

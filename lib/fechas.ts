@@ -2,8 +2,8 @@
 // las fechas al mediodia UTC. Asi ningun cambio de hora ni diferencia de zona
 // puede desplazar el dia, que es el error clasico al hacer esto con Date.
 
-const ETIQUETAS_DIA = ["Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"];
-const ETIQUETAS_DIA_CORTO = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
+const ETIQUETAS_DIA = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const ETIQUETAS_DIA_CORTO = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const ETIQUETAS_MES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
   "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",

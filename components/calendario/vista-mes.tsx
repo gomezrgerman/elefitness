@@ -15,7 +15,7 @@ interface Props {
   onIrADia: (fecha: string) => void;
 }
 
-const CABECERAS = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
+const CABECERAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 export function VistaMes({ fecha, hoy, clases, sesiones, reservas, onIrADia }: Props) {
   const dias = diasDeMes(fecha);

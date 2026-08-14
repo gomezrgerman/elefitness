@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { HorarioCliente } from "@/components/horario-cliente";
+import { ReservaCliente } from "@/components/reserva-cliente";
 import { MiPlan } from "@/components/mi-plan";
 import { Card, CardContent } from "@/components/ui/card";
 import { BadgeEstado } from "@/components/badge-estado";
@@ -113,9 +113,9 @@ export default async function ClientePage() {
       <MiPlan cliente={cliente} planes={planes} pagos={pagos} bonosCliente={bonosCliente} />
       <div>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Horario semanal
+          Reserva tu clase
         </h2>
-        <HorarioCliente
+        <ReservaCliente
           clienteId={cliente.id}
           hoy={hoy}
           limite={limite}

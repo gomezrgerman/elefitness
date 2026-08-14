@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export type Vista = "dia" | "semana" | "mes";
@@ -14,7 +15,7 @@ interface Props {
 }
 
 const OPCIONES: { valor: Vista; etiqueta: string }[] = [
-  { valor: "dia", etiqueta: "Dia" },
+  { valor: "dia", etiqueta: "Día" },
   { valor: "semana", etiqueta: "Semana" },
   { valor: "mes", etiqueta: "Mes" },
 ];
@@ -26,13 +27,13 @@ export function SelectorVista({ vista, titulo, onCambiarVista, onAnterior, onSig
       style={{ animation: "fade-in-up 0.4s var(--ease-spring) forwards" }}
     >
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={onAnterior} aria-label="Anterior">
-          ←
+        <Button variant="outline" size="icon-lg" onClick={onAnterior} aria-label="Anterior">
+          <ChevronLeft aria-hidden="true" />
         </Button>
-        <Button variant="outline" size="sm" onClick={onSiguiente} aria-label="Siguiente">
-          →
+        <Button variant="outline" size="icon-lg" onClick={onSiguiente} aria-label="Siguiente">
+          <ChevronRight aria-hidden="true" />
         </Button>
-        <Button variant="ghost" size="sm" onClick={onHoy}>
+        <Button variant="ghost" size="default" onClick={onHoy}>
           Hoy
         </Button>
         <span className="text-sm font-medium">{titulo}</span>
@@ -41,7 +42,7 @@ export function SelectorVista({ vista, titulo, onCambiarVista, onAnterior, onSig
         {OPCIONES.map(({ valor, etiqueta }) => (
           <Button
             key={valor}
-            size="sm"
+            size="default"
             variant={vista === valor ? "default" : "ghost"}
             onClick={() => onCambiarVista(valor)}
           >

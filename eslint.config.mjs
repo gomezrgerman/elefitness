@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Proyecto separado con su propio eslint y tsconfig:
+    "pagina web/**",
+    // Worktrees con sus propios .next y configuracion:
+    ".claude/worktrees/**",
   ]),
 ]);
 

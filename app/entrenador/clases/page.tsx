@@ -54,6 +54,7 @@ export default async function EntrenadorClasesPage() {
         franjas={franjas}
         clases={clases}
         sesiones={sesiones}
+        reservas={reservas}
         usuarios={usuarios}
         puedeAbrir={false}
       />

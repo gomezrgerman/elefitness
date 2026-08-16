@@ -49,7 +49,15 @@ export default async function AdminClasesPage() {
           puedeQuitar
         />
       )}
-      <RejillaHuecos hoy={hoy} franjas={franjas} clases={clases} sesiones={sesiones} usuarios={usuarios} puedeAbrir />
+      <RejillaHuecos
+        hoy={hoy}
+        franjas={franjas}
+        clases={clases}
+        sesiones={sesiones}
+        reservas={reservas}
+        usuarios={usuarios}
+        puedeAbrir
+      />
     </div>
   );
 }

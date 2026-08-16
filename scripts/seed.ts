@@ -44,6 +44,7 @@ const FRANJAS: FranjaHoraria[] = [
   { horaInicio: "07:50", horaFin: "08:40", dias: ["lunes", "martes", "miercoles", "jueves", "viernes"] },
   { horaInicio: "08:40", horaFin: "09:30", dias: ["lunes", "martes", "miercoles", "jueves", "viernes"] },
   { horaInicio: "09:30", horaFin: "10:20", dias: ["lunes", "martes", "miercoles", "jueves"] },
+  { horaInicio: "10:20", horaFin: "11:10", dias: ["lunes", "martes", "miercoles", "jueves"] },
   { horaInicio: "13:50", horaFin: "14:40", dias: ["lunes", "miercoles", "viernes"] },
   { horaInicio: "14:40", horaFin: "15:30", dias: ["lunes", "miercoles", "viernes"] },
   { horaInicio: "16:00", horaFin: "16:50", dias: ["lunes", "martes", "miercoles", "jueves"] },
@@ -54,19 +55,22 @@ const FRANJAS: FranjaHoraria[] = [
   { horaInicio: "20:10", horaFin: "21:00", dias: ["lunes", "martes", "miercoles", "jueves"] },
 ];
 
-// Rejilla completa del centro: las 15 franjas horarias que existen como
+// Rejilla completa del centro: las 16 franjas horarias que existen como
 // concepto, con independencia de si hoy tienen una clase fija encima. FRANJAS
-// (arriba) genera las 51 clases del horario fijo; esta lista siembra la tabla
+// (arriba) genera las clases del horario fijo; esta lista siembra la tabla
 // franjas_horarias, que es lo que Elena ve cuando busca un hueco para abrir.
 // Son listas deliberadamente distintas: las tres franjas de mediodia
 // (11:10-12:00, 12:00-12:50, 13:00-13:50) no aparecen en FRANJAS porque no
 // tienen ninguna clase, pero si pertenecen a la rejilla -- son justo las que
-// Elena podria abrir bajo demanda.
+// Elena podria abrir bajo demanda. La franja 10:20-11:10 se anadio el
+// 2026-08-16 (faltaba en el horario original); si tiene clase fija de lunes
+// a jueves con Ivan, ver FRANJAS.
 const REJILLA_FRANJAS: { horaInicio: string; horaFin: string }[] = [
   { horaInicio: "07:00", horaFin: "07:50" },
   { horaInicio: "07:50", horaFin: "08:40" },
   { horaInicio: "08:40", horaFin: "09:30" },
   { horaInicio: "09:30", horaFin: "10:20" },
+  { horaInicio: "10:20", horaFin: "11:10" },
   { horaInicio: "11:10", horaFin: "12:00" },
   { horaInicio: "12:00", horaFin: "12:50" },
   { horaInicio: "13:00", horaFin: "13:50" },
@@ -160,15 +164,13 @@ async function main() {
   const planFitPlus = idDePlan("Fit Plus");
   const planBono10 = idDePlan("Bono 10 sesiones");
 
-  // Genera las 51 clases del horario fijo a partir de FRANJAS x dias.
+  // Genera las 55 clases del horario fijo a partir de FRANJAS x dias (51
+  // originales + la de 10:20-11:10 lunes a jueves, anadida el 2026-08-16).
   //
-  // PROVISIONAL: el reparto de quien da cada clase lo confirmara Elena mas
-  // adelante -- de momento no hay dato real. Se asigna Ivan a las clases que
-  // empiezan antes de las 16:00 y Elena a las de 16:00 en adelante solo para
-  // que la demo no muestre las 51 clases con el mismo entrenador. No tratar
-  // este criterio como una regla de negocio real.
+  // Reparto confirmado por Elena el 2026-08-16: Ivan solo esta en el centro
+  // por las mananas, hasta las 12:00; el resto de horario es de Elena.
   const clasesAInsertar = FRANJAS.flatMap((franja) => {
-    const entrenadorId = franja.horaInicio < "16:00" ? ivanId : elenaId;
+    const entrenadorId = franja.horaInicio < "12:00" ? ivanId : elenaId;
     return franja.dias.map((dia) => ({
       dia: dia as "lunes" | "martes" | "miercoles" | "jueves" | "viernes",
       hora_inicio: franja.horaInicio,
@@ -179,8 +181,8 @@ async function main() {
     }));
   });
 
-  if (clasesAInsertar.length !== 51) {
-    throw new Error(`Se esperaban 51 clases en el horario fijo, se generaron ${clasesAInsertar.length}`);
+  if (clasesAInsertar.length !== 55) {
+    throw new Error(`Se esperaban 55 clases en el horario fijo, se generaron ${clasesAInsertar.length}`);
   }
 
   const { data: clasesCreadas, error: errorClases } = await admin

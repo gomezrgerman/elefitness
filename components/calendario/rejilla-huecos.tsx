@@ -6,16 +6,20 @@ import { cn } from "@/lib/utils";
 import { usuarioPorId } from "@/lib/selectors";
 import { diasDeSemana, formatearDiaCorto, formatearMes, inicioDeSemana, mismoMes, numeroDeDia, sumarDias } from "@/lib/fechas";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { copiarSemana } from "@/lib/actions/horarios";
+import { eliminarSesion } from "@/lib/actions/sesiones";
+import { formatearDiaLargo } from "@/lib/fechas";
 import { AbrirHuecoDialogo } from "./abrir-hueco-dialogo";
-import type { Clase, Sesion, FranjaHoraria, Usuario, DiaSemana } from "@/lib/types";
+import type { Clase, Sesion, Reserva, FranjaHoraria, Usuario, DiaSemana } from "@/lib/types";
 
 interface Props {
   hoy: string;
   franjas: FranjaHoraria[];
   clases: Clase[];
   sesiones: Sesion[];
+  reservas: Reserva[];
   usuarios: Usuario[];
   puedeAbrir: boolean;
 }
@@ -54,11 +58,34 @@ function etiquetaSemanaLaboral(fechasDeLaSemana: string[]): string {
   return `${numeroDeDia(lunes)} ${formatearMes(lunes)} - ${numeroDeDia(sabado)} ${formatearMes(sabado)}`;
 }
 
-export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeAbrir }: Props) {
+interface SesionParaEliminar {
+  sesionId: string;
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+}
+
+export function RejillaHuecos({ hoy, franjas, clases, sesiones, reservas, usuarios, puedeAbrir }: Props) {
   const [fecha, setFecha] = useState(hoy);
   const [celda, setCelda] = useState<CeldaSeleccionada | null>(null);
+  const [aEliminar, setAEliminar] = useState<SesionParaEliminar | null>(null);
   const [copiando, startTransition] = useTransition();
+  const [eliminando, startEliminarTransition] = useTransition();
   const { toast } = useToast();
+
+  function confirmarEliminar() {
+    if (!aEliminar) return;
+    const sesionId = aEliminar.sesionId;
+    startEliminarTransition(async () => {
+      const respuesta = await eliminarSesion(sesionId);
+      if (respuesta.error) {
+        toast(respuesta.error, "error");
+        return;
+      }
+      toast("Sesion eliminada", "success");
+      setAEliminar(null);
+    });
+  }
 
   const fechasDeLaSemana = diasDeSemana(fecha).slice(0, 6);
 
@@ -194,11 +221,37 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
 
                 if (claseFija) {
                   const entrenador = usuarioPorId(usuarios, claseFija.entrenadorId);
+                  const sesion = sesiones.find((s) => s.claseId === claseFija.id && s.fecha === fechaDia);
+                  const sinReservasActivas = Boolean(
+                    sesion && !reservas.some((r) => r.sesionId === sesion.id && r.estado !== "cancelada")
+                  );
+                  const puedeEliminar = puedeAbrir && Boolean(sesion) && sinReservasActivas;
                   return (
                     <div
                       key={dia}
-                      title={`Clase fija, ${entrenador?.nombre ?? "sin entrenador"}`}
-                      className={cn("flex items-center justify-center rounded-md px-1 py-1.5 text-center text-[11px]", ESTILO_FIJA)}
+                      role={puedeEliminar ? "button" : undefined}
+                      tabIndex={puedeEliminar ? 0 : undefined}
+                      title={
+                        puedeEliminar
+                          ? "Toca para eliminar esta sesion"
+                          : `Clase fija, ${entrenador?.nombre ?? "sin entrenador"}`
+                      }
+                      onClick={
+                        puedeEliminar
+                          ? () =>
+                              setAEliminar({
+                                sesionId: sesion!.id,
+                                fecha: fechaDia,
+                                horaInicio: franja.horaInicio,
+                                horaFin: franja.horaFin,
+                              })
+                          : undefined
+                      }
+                      className={cn(
+                        "flex items-center justify-center rounded-md px-1 py-1.5 text-center text-[11px]",
+                        ESTILO_FIJA,
+                        puedeEliminar && "cursor-pointer transition-colors hover:bg-destructive/10 hover:ring-1 hover:ring-destructive/40"
+                      )}
                     >
                       {entrenador?.nombre.split(" ")[0] ?? "—"}
                     </div>
@@ -207,11 +260,36 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
 
                 if (clasePuntual) {
                   const entrenador = usuarioPorId(usuarios, clasePuntual.entrenadorId);
+                  const sinReservasActivas = Boolean(
+                    sesionPuntual && !reservas.some((r) => r.sesionId === sesionPuntual.id && r.estado !== "cancelada")
+                  );
+                  const puedeEliminar = puedeAbrir && Boolean(sesionPuntual) && sinReservasActivas;
                   return (
                     <div
                       key={dia}
-                      title={`Abierta solo este dia, ${entrenador?.nombre ?? "sin entrenador"}`}
-                      className={cn("flex flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1.5 text-center text-[11px]", ESTILO_PUNTUAL)}
+                      role={puedeEliminar ? "button" : undefined}
+                      tabIndex={puedeEliminar ? 0 : undefined}
+                      title={
+                        puedeEliminar
+                          ? "Toca para eliminar esta sesion"
+                          : `Abierta solo este dia, ${entrenador?.nombre ?? "sin entrenador"}`
+                      }
+                      onClick={
+                        puedeEliminar
+                          ? () =>
+                              setAEliminar({
+                                sesionId: sesionPuntual!.id,
+                                fecha: fechaDia,
+                                horaInicio: franja.horaInicio,
+                                horaFin: franja.horaFin,
+                              })
+                          : undefined
+                      }
+                      className={cn(
+                        "flex flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1.5 text-center text-[11px]",
+                        ESTILO_PUNTUAL,
+                        puedeEliminar && "cursor-pointer transition-colors hover:ring-1 hover:ring-destructive/40"
+                      )}
                     >
                       <span>{entrenador?.nombre.split(" ")[0] ?? "—"}</span>
                       <span className="text-[9px] uppercase tracking-wide opacity-80">Puntual</span>
@@ -268,6 +346,31 @@ export function RejillaHuecos({ hoy, franjas, clases, sesiones, usuarios, puedeA
           usuarios={usuarios}
           onCerrar={() => setCelda(null)}
         />
+      )}
+
+      {aEliminar && (
+        <Dialog open onOpenChange={(abierto) => !abierto && setAEliminar(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                Eliminar la clase de {aEliminar.horaInicio} a {aEliminar.horaFin}
+              </DialogTitle>
+              <DialogDescription>{formatearDiaLargo(aEliminar.fecha)}</DialogDescription>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Solo se borra esta sesion concreta (para un festivo o un ajuste puntual). Si es una clase del horario
+              fijo, el resto de semanas no cambia.
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAEliminar(null)} disabled={eliminando}>
+                Cancelar
+              </Button>
+              <Button variant="destructive" onClick={confirmarEliminar} disabled={eliminando}>
+                Eliminar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

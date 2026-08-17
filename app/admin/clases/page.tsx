@@ -10,21 +10,25 @@ import {
   obtenerPlanes,
   obtenerFranjas,
 } from "@/lib/supabase/queries";
-import { hoyEnEspana } from "@/lib/fechas";
+import { hoyEnEspana, sumarMesesMismoDia } from "@/lib/fechas";
 
 export default async function AdminClasesPage() {
+  const hoy = hoyEnEspana();
+  const ahora = new Date().toISOString();
+  // Ventana movil, no la tabla entera (ver docs/deuda-tecnica.md): de sobra
+  // para revisar el mes pasado y planificar varios meses por delante. Fuera
+  // de este rango el calendario y la rejilla dejan de mostrar contenido.
+  const rango = { desde: sumarMesesMismoDia(hoy, -3), hasta: sumarMesesMismoDia(hoy, 6) };
+
   const [clases, sesiones, reservas, clientes, usuarios, planes, franjas] = await Promise.all([
     obtenerClases(),
-    obtenerSesiones(),
-    obtenerReservas(),
+    obtenerSesiones(rango),
+    obtenerReservas(rango),
     obtenerClientes(),
     obtenerUsuarios(),
     obtenerPlanes(),
     obtenerFranjas(),
   ]);
-
-  const hoy = hoyEnEspana();
-  const ahora = new Date().toISOString();
   const sesionesFuturas = sesiones.filter((s) => s.fecha >= hoy).length;
 
   return (

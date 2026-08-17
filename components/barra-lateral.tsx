@@ -10,6 +10,7 @@ import {
   CalendarIcon,
   CreditCardIcon,
   LogOutIcon,
+  KeyRoundIcon,
   DumbbellIcon,
   PanelLeftCloseIcon,
   PanelLeftIcon,
@@ -194,7 +195,14 @@ export function BarraLateral({ tabs, marca = "Elefitness", children }: Props) {
 
 export function SidebarLogout({ onLogout }: { onLogout: () => void }) {
   return (
-    <div className="px-2 py-3 border-t border-border mt-auto">
+    <div className="px-2 py-3 border-t border-border mt-auto flex flex-col gap-0.5">
+      <Link
+        href="/cambiar-contrasena"
+        className="sidebar-link relative z-10 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors duration-200"
+      >
+        <KeyRoundIcon className="size-4 shrink-0" aria-hidden="true" />
+        <span>Cambiar contraseña</span>
+      </Link>
       <button
         onClick={onLogout}
         aria-label="Cerrar sesion"

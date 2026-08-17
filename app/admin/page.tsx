@@ -9,20 +9,24 @@ import {
   obtenerReservas,
   obtenerPagos,
 } from "@/lib/supabase/queries";
-import { hoyEnEspana } from "@/lib/fechas";
+import { hoyEnEspana, sumarDias } from "@/lib/fechas";
 
 export default async function AdminDashboard() {
+  const hoy = hoyEnEspana();
+  // Solo ensena las proximas clases (maximo 3): con dos semanas de sobra
+  // siempre hay contenido, sin traer la tabla entera (ver docs/deuda-tecnica.md).
+  const rango = { desde: hoy, hasta: sumarDias(hoy, 14) };
+
   const [clientes, usuarios, clases, sesiones, reservas, pagos] = await Promise.all([
     obtenerClientes(),
     obtenerUsuarios(),
     obtenerClases(),
-    obtenerSesiones(),
-    obtenerReservas(),
+    obtenerSesiones(rango),
+    obtenerReservas(rango),
     obtenerPagos(),
   ]);
 
   const activas = clientes.filter((c) => c.estado === "activo").length;
-  const hoy = hoyEnEspana();
   const clasesHoy = sesiones.filter((s) => s.fecha === hoy).length;
   const alDia = pagos.filter((p) => p.estado === "al_dia").length;
   const morosos = pagos.filter((p) => p.estado === "moroso").length;

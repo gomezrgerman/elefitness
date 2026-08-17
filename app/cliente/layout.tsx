@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BarraLateral, SidebarLogout } from "@/components/barra-lateral";
 import { createClient } from "@/lib/supabase/client";
@@ -22,7 +23,10 @@ export default function ClienteLayout({ children }: { children: React.ReactNode 
       </BarraLateral>
 
       <div className="flex flex-1 flex-col">
-        <header className="md:hidden flex items-center justify-end border-b border-border px-4 py-3">
+        <header className="md:hidden flex items-center justify-end gap-3 border-b border-border px-4 py-3">
+          <Link href="/cambiar-contrasena" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            Contraseña
+          </Link>
           <button
             onClick={cerrarSesion}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"

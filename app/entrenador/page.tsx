@@ -12,16 +12,18 @@ import { usuarioPorId, clientePorId } from "@/lib/selectors";
 import { hoyEnEspana } from "@/lib/fechas";
 
 export default async function EntrenadorDashboard() {
+  const hoy = hoyEnEspana();
+  // Solo hace falta hoy (ver docs/deuda-tecnica.md): sin acotar, esta consulta
+  // traia la tabla entera de sesiones/reservas del centro.
   const [clientes, usuarios, clases, sesiones, reservas] = await Promise.all([
     obtenerClientes(),
     obtenerUsuarios(),
     obtenerClases(),
-    obtenerSesiones(),
-    obtenerReservas(),
+    obtenerSesiones({ desde: hoy, hasta: hoy }),
+    obtenerReservas({ desde: hoy, hasta: hoy }),
   ]);
 
   const activas = clientes.filter((c) => c.estado === "activo").length;
-  const hoy = hoyEnEspana();
   const sesionesHoy = sesiones.filter((s) => s.fecha === hoy);
   const clasesHoy = sesionesHoy.length;
 

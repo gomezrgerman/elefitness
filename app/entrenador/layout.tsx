@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BarraLateral, SidebarLogout } from "@/components/barra-lateral";
 import { PestanasMovil } from "@/components/pestanas-movil";
@@ -44,6 +45,9 @@ export default function EntrenadorLayout({ children }: { children: React.ReactNo
             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
               Solo lectura
             </Badge>
+            <Link href="/cambiar-contrasena" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Contraseña
+            </Link>
             <button
               onClick={cerrarSesion}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"

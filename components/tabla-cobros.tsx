@@ -46,7 +46,12 @@ export function TablaCobros({ pagos, clientes, usuarios, planes, soloLectura = f
     setProcesando(pago.id);
     setError(null);
     const fechaHoy = hoyEnEspana();
-    const proximoCobro = pago.tipo === "mensual" ? sumarMesesMismoDia(fechaHoy, 1) : null;
+    // El siguiente cobro avanza siempre desde el proximo_cobro que ya tenia
+    // la clienta, no desde el dia en que Elena pulsa el boton: si registra el
+    // pago con unos dias de retraso, la fecha de facturacion no debe
+    // desplazarse hacia adelante de forma permanente. Solo se ancla a hoy si
+    // todavia no tenia ningun ciclo (proximo_cobro nulo, primer pago).
+    const proximoCobro = pago.tipo === "mensual" ? sumarMesesMismoDia(pago.proximoCobro ?? fechaHoy, 1) : null;
     const respuesta = await registrarPago({ pagoId: pago.id, fechaPago: fechaHoy, proximoCobro });
     if (respuesta.error) {
       setError(respuesta.error);

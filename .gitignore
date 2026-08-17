@@ -24,6 +24,10 @@
 .DS_Store
 *.pem
 
+# documentos y media reales de Elefitness (CSVs de clientas, horario, fotos,
+# videos...): local solo, nunca al repo.
+/info/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

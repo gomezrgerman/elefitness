@@ -27,12 +27,19 @@ export default async function ClientePage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const hoy = hoyEnEspana();
+  const limite = sumarDias(hoy, 21);
+  const ahora = new Date();
+
+  // Acotado a la ventana de reserva de 3 semanas: es todo lo que esta pantalla
+  // muestra, y evita traer la tabla entera de sesiones/reservas del centro
+  // (ver docs/deuda-tecnica.md).
   const [cliente, usuarios, clases, sesiones, reservas, planes, pagos, bonosCliente, ocupacion] = await Promise.all([
     obtenerClienteDeUsuario(user.id),
     obtenerUsuarios(),
     obtenerClases(),
-    obtenerSesiones(),
-    obtenerReservas(),
+    obtenerSesiones({ desde: hoy, hasta: limite }),
+    obtenerReservas({ desde: hoy, hasta: limite }),
     obtenerPlanes(),
     obtenerPagos(),
     obtenerBonosCliente(),
@@ -42,10 +49,6 @@ export default async function ClientePage() {
   if (!cliente) redirect("/login");
   const usuario = usuarioPorId(usuarios, user.id);
   if (!usuario) redirect("/login");
-
-  const hoy = hoyEnEspana();
-  const limite = sumarDias(hoy, 21);
-  const ahora = new Date();
 
   // TS no propaga el `if (!cliente) redirect(...)` de arriba dentro de las
   // funciones anidadas de aqui abajo; se capturan en constantes ya no-nulas

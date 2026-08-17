@@ -47,7 +47,18 @@ que ya está construido; se anotan aquí para no redescubrirlos más adelante.
   porque el filtro comparaba solo por fecha, no por instante; ahora usa
   `instanteEnEspana` para descartarla en cuanto empieza, igual que hace la RPC.
 
-## 2026-08-11 — Riesgo de truncado silencioso en obtenerSesiones/obtenerReservas
+## 2026-08-11 — Riesgo de truncado silencioso en obtenerSesiones/obtenerReservas [RESUELTO 2026-08-17]
+
+`obtenerSesiones`/`obtenerReservas` aceptan ahora un `{ desde?, hasta? }` que
+acota por `sesiones.fecha` (para `obtenerReservas`, via join
+`sesiones!inner(fecha)` -- `reservas` no tiene columna de fecha propia).
+Cada llamante pasa la ventana que de verdad necesita: `app/cliente/page.tsx`
+la ventana de reserva de 3 semanas, `app/admin|entrenador/clases/page.tsx`
+una ventana movil de -3/+6 meses (generosa para navegar el calendario sin
+volver a acumular sin limite), los dos dashboards solo hoy o las proximas
+dos semanas. Las paginas de ficha de clienta siguen sin acotar (resuelven el
+historial de una sola clienta, no el volumen del centro entero -- no es el
+mismo riesgo, pero si crece podria convenir acotarlo tambien mas adelante).
 
 `lib/supabase/queries.ts`: `obtenerSesiones()` y `obtenerReservas()` hacen
 `select` sin `.range()`/`.limit()`, y ahora alimentan el calendario completo

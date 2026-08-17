@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BarraLateral, SidebarLogout } from "@/components/barra-lateral";
 import { PestanasMovil } from "@/components/pestanas-movil";
@@ -34,7 +35,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       <div className="flex flex-1 flex-col">
         <PestanasMovil tabs={TABS}>
-          <div className="ml-auto flex items-center pr-3">
+          <div className="ml-auto flex items-center gap-3 pr-3">
+            <Link href="/cambiar-contrasena" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Contraseña
+            </Link>
             <button
               onClick={cerrarSesion}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"

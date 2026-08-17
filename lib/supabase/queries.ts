@@ -90,11 +90,23 @@ export async function obtenerClases(): Promise<Clase[]> {
   }));
 }
 
-export async function obtenerSesiones(): Promise<Sesion[]> {
+// Sin desde/hasta, PostgREST trunca en silencio por encima de su limite de
+// Max Rows (ver docs/deuda-tecnica.md): nada avisa de que faltan filas, el
+// calendario simplemente empezaria a mostrar menos gente de la que hay
+// apuntada. desde/hasta acotan por sesiones.fecha, no por cuando se creo la
+// fila -- es la fecha de la CLASE la que importa para lo que muestra cada
+// pantalla, no cuando se hizo la reserva.
+interface RangoFechas {
+  desde?: string;
+  hasta?: string;
+}
+
+export async function obtenerSesiones(rango?: RangoFechas): Promise<Sesion[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("sesiones")
-    .select("id, clase_id, fecha, aforo_efectivo, abierta, created_at");
+  let query = supabase.from("sesiones").select("id, clase_id, fecha, aforo_efectivo, abierta, created_at");
+  if (rango?.desde) query = query.gte("fecha", rango.desde);
+  if (rango?.hasta) query = query.lte("fecha", rango.hasta);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map((s) => ({
     id: s.id,
@@ -106,11 +118,17 @@ export async function obtenerSesiones(): Promise<Sesion[]> {
   }));
 }
 
-export async function obtenerReservas(): Promise<Reserva[]> {
+export async function obtenerReservas(rango?: RangoFechas): Promise<Reserva[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  // El join a sesiones va siempre en el select (aunque no se filtre) para que
+  // el tipo que infiere supabase-js sea el mismo en los dos casos -- construir
+  // el string de seleccion segun rango rompe esa inferencia.
+  let query = supabase
     .from("reservas")
-    .select("id, sesion_id, cliente_id, estado, asistencia, cancelada_en, created_at, bono_id");
+    .select("id, sesion_id, cliente_id, estado, asistencia, cancelada_en, created_at, bono_id, sesiones!inner(fecha)");
+  if (rango?.desde) query = query.gte("sesiones.fecha", rango.desde);
+  if (rango?.hasta) query = query.lte("sesiones.fecha", rango.hasta);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id,

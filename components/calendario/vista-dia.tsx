@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { CheckIcon, XIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,12 +33,6 @@ interface Props {
   planes: Plan[];
   puedeQuitar: boolean;
 }
-
-const ESTADOS: { valor: EstadoAsistencia; etiqueta: string }[] = [
-  { valor: "asistio", etiqueta: "Vino" },
-  { valor: "no_asistio", etiqueta: "Falto" },
-  { valor: "pendiente", etiqueta: "Sin marcar" },
-];
 
 export function VistaDia({
   fecha,
@@ -245,20 +240,36 @@ export function VistaDia({
                       </div>
                     )}
 
-                    <div className="flex flex-wrap gap-2">
-                      {ESTADOS.map(({ valor, etiqueta }) => (
-                        <Button
-                          key={valor}
-                          size="default"
-                          variant={reserva.asistencia === valor ? "default" : "outline"}
-                          disabled={pendiente || !yaEmpezo}
-                          onClick={() => cambiarAsistencia(reserva.id, valor)}
-                        >
-                          {etiqueta}
-                        </Button>
-                      ))}
+                    <div className="flex gap-2">
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        aria-label="Vino"
+                        aria-pressed={reserva.asistencia === "asistio"}
+                        disabled={pendiente}
+                        onClick={() => cambiarAsistencia(reserva.id, "asistio")}
+                        className={cn(
+                          reserva.asistencia === "asistio" &&
+                            "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-600/90 hover:text-white"
+                        )}
+                      >
+                        <CheckIcon />
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        aria-label="Falto"
+                        aria-pressed={reserva.asistencia === "no_asistio"}
+                        disabled={pendiente}
+                        onClick={() => cambiarAsistencia(reserva.id, "no_asistio")}
+                        className={cn(
+                          reserva.asistencia === "no_asistio" &&
+                            "border-red-600 bg-red-600 text-white hover:bg-red-600/90 hover:text-white"
+                        )}
+                      >
+                        <XIcon />
+                      </Button>
                     </div>
-                    {!yaEmpezo && <p className="text-xs text-muted-foreground">La clase aun no ha empezado.</p>}
                     {puedeQuitar && yaEmpezo && (
                       <p className="text-xs text-muted-foreground">La clase ya ha empezado, no se puede quitar.</p>
                     )}

@@ -87,7 +87,7 @@ Si una tarea pide algo de esta lista, parar y preguntar antes de implementar —
 - [x] **Sprint 1** — Setup repo, Supabase (schema + RLS), auth 3 roles (admin/entrenador/cliente), CRUD de clientes
 - [x] **Sprint 2** — Calendario de clases + reservas con aforo y lista de espera + panel de solo lectura del entrenador (ampliado con rejilla de huecos, restricción por entrenador, copiar semana, añadir clienta a una sesión)
 - [ ] **Sprint 3** — Pagos: registro manual y bonos con crédito consumible YA HECHOS (con las reglas de cancelación corregidas por Elena el 2026-08-14). **Falta Stripe entero**: checkout autenticado desde dentro de la app usando el `stripe_price_id` de cada clienta (nunca link público — ver brief punto 10), suscripciones recurrentes, webhooks de alta/baja por cobro fallido, export CSV
-- [ ] **Sprint 4** — Panel de la dueña YA HECHO. Falta: emails transaccionales (Resend), PWA (manifest + service worker), dominio propio (hoy en `elefitness.vercel.app`)
+- [ ] **Sprint 4** — Panel de la dueña YA HECHO. Falta: emails transaccionales (Resend), PWA (manifest + service worker). Dominio: Elena ya tiene uno en Hostinger, Germán a la espera de que le dé acceso de colaborador para apuntarlo a Vercel
 
 Marcar cada sprint como hecho aquí mismo según se cierre, para que la siguiente sesión de Claude Code sepa dónde retomar.
 

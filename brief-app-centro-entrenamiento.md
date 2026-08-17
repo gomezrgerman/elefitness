@@ -124,8 +124,8 @@ Grabación completa: https://fathom.video/share/Ldzy8nqYrXjJQCA5mQxMMZknvnrtc9Hm
 
 ### Pendiente de aclarar con Elena antes de meterlo en el prototipo
 
-- **"Panel de notificaciones"**: no quedó claro si es un panel interno para Elena/Iván (alertas de lista de espera movida, cancelaciones, pagos fallidos) o si incluye avisos al cliente. Si es lo primero, encaja en v1; si implica mensajería al cliente, se solapa con lo diferido a v2.
-- **Enlaces de atribución por entrenador** ("saber por parte de cada entrenador entra más gente, crear diferentes links para apuntarse"): esto es distinto del programa de referidos de clientes (que sí queda diferido). Suena a algo simple — un link distinto por entrenador que etiqueta de dónde vino el alta — pensado más para la landing page (Fase 2) que para el prototipo de gestión. Confirmarlo cuando se hable de la landing.
+- ~~**"Panel de notificaciones"**~~ **Resuelto (2026-08-16):** primero solo interno, para Elena e Iván (alertas de lista de espera movida, cancelaciones, pagos fallidos). Se decide más adelante si se extiende a avisos de cara a la clienta — eso sí se solaparía con lo diferido a v2.
+- **Enlaces de atribución por entrenador** ("saber por parte de cada entrenador entra más gente, crear diferentes links para apuntarse"): esto es distinto del programa de referidos de clientes (que sí queda diferido). Suena a algo simple — un link distinto por entrenador que etiqueta de dónde vino el alta — pensado más para la landing page (Fase 2) que para el prototipo de gestión. Confirmarlo cuando se hable de la landing. **Sigue sin cerrar.**
 
 ### Pagos y Verifactu
 

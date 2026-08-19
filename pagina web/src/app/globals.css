@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: oklch(0.17 0.014 255);
+  --color-bg-soft: oklch(0.23 0.009 105);
+  --color-surface: oklch(0.29 0.011 248);
+  --color-surface-light: oklch(0.29 0.011 248);
+  --color-white: oklch(0.96 0.004 120);
+  --color-text: oklch(0.96 0.004 120);
+  --color-text-dark: oklch(0.96 0.004 120);
+  --color-muted: oklch(0.75 0.035 178);
+  --color-border: oklch(0.96 0.004 120 / 10%);
+  --color-accent: oklch(0.52 0.036 185);
+  --color-accent-soft: oklch(0.6 0.038 181);
+  --color-accent-dark: oklch(0.45 0.033 185);
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --text-hero: clamp(3.5rem, 9vw, 9rem);
+  --text-section: clamp(2.6rem, 6vw, 6.5rem);
+  --text-heading: clamp(2rem, 4vw, 4rem);
+  --text-body-large: clamp(1.125rem, 1.6vw, 1.5rem);
+
+  --radius-sm: 0.75rem;
+  --radius-md: 1.25rem;
+  --radius-lg: 2rem;
+  --radius-xl: 3rem;
+  --radius-pill: 999px;
+}
+
+/*
+  next/font exposes the loaded font as a CSS variable set via a className
+  on <html> (wired in layout.tsx). `@theme inline` references it directly
+  instead of baking in a static value, matching how create-next-app's own
+  generated globals.css wires --font-sans to --font-geist-sans.
+*/
+@theme inline {
+  --font-display: var(--font-geist-sans), sans-serif;
+  --font-body: var(--font-geist-sans), sans-serif;
+}
+
+section[id] {
+  scroll-margin-top: 5rem;
+}
+
+/* Zoom "Ken Burns" lento sobre la imagen del hero: simula el movimiento de
+   una camara sin cargar video. Se para solo para quien prefiera menos
+   movimiento (regla de prefers-reduced-motion de abajo). */
+@keyframes ken-burns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+
+.ken-burns img {
+  animation: ken-burns 28s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

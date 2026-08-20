@@ -9,9 +9,11 @@ import {
   UsersIcon,
   CalendarIcon,
   CreditCardIcon,
+  HomeIcon,
 } from "lucide-react";
 
 const TABS = [
+  { href: "/admin", label: "Resumen", icono: HomeIcon },
   { href: "/admin/clientes", label: "Clientes", icono: UsersIcon },
   { href: "/admin/clases", label: "Clases", icono: CalendarIcon },
   { href: "/admin/cobros", label: "Cobros", icono: CreditCardIcon },

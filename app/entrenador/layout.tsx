@@ -10,9 +10,11 @@ import {
   UsersIcon,
   CalendarIcon,
   CreditCardIcon,
+  HomeIcon,
 } from "lucide-react";
 
 const TABS = [
+  { href: "/entrenador", label: "Resumen", icono: HomeIcon },
   { href: "/entrenador/clientes", label: "Clientes", icono: UsersIcon },
   { href: "/entrenador/clases", label: "Clases", icono: CalendarIcon },
   { href: "/entrenador/cobros", label: "Cobros", icono: CreditCardIcon },

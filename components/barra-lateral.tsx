@@ -14,6 +14,7 @@ import {
   DumbbellIcon,
   PanelLeftCloseIcon,
   PanelLeftIcon,
+  HomeIcon,
 } from "lucide-react";
 
 interface TabItem {
@@ -23,6 +24,7 @@ interface TabItem {
 }
 
 const ICONOS_POR_LABEL: Record<string, typeof DumbbellIcon> = {
+  Resumen: HomeIcon,
   Clientes: UsersIcon,
   Clases: CalendarIcon,
   Cobros: CreditCardIcon,
@@ -161,7 +163,13 @@ export function BarraLateral({ tabs, marca = "Elefitness", children }: Props) {
         <ShapeArea />
         {tabs.map((tab) => {
           const Icono = tab.icono;
-          const activo = pathname === tab.href || pathname.startsWith(tab.href + "/");
+          // Un tab "raiz" (ej. /admin) no puede usar el mismo prefijo que
+          // el resto: pathname.startsWith("/admin/") es cierto en /admin/clientes
+          // tambien, lo que marcaria "Resumen" como activo en todas las paginas.
+          const esTabRaiz = tab.href.split("/").filter(Boolean).length === 1;
+          const activo = esTabRaiz
+            ? pathname === tab.href
+            : pathname === tab.href || pathname.startsWith(tab.href + "/");
           return (
             <Link
               key={tab.href}

@@ -10,6 +10,7 @@ import {
   UsersIcon,
   CalendarIcon,
   CreditCardIcon,
+  HomeIcon,
 } from "lucide-react";
 
 interface TabItem {
@@ -23,19 +24,25 @@ interface Props {
 }
 
 const ICONOS: Record<string, typeof UsersIcon> = {
+  Resumen: HomeIcon,
   Clientes: UsersIcon,
   Clases: CalendarIcon,
   Cobros: CreditCardIcon,
 };
+
+// Mismo motivo que en BarraLateral: un tab "raiz" (ej. /admin) no puede
+// usar prefijo, o se marcaria activo tambien en /admin/clientes.
+function coincide(pathname: string, href: string): boolean {
+  const esTabRaiz = href.split("/").filter(Boolean).length === 1;
+  return esTabRaiz ? pathname === href : pathname === href || pathname.startsWith(href + "/");
+}
 
 export function PestanasMovil({ tabs, children }: Props) {
   const pathname = usePathname();
   const navRef = useRef<HTMLElement>(null);
   const indicatorRef = useRef<HTMLDivElement>(null);
 
-  const activeIndex = tabs.findIndex(
-    (tab) => pathname === tab.href || pathname.startsWith(tab.href + "/")
-  );
+  const activeIndex = tabs.findIndex((tab) => coincide(pathname, tab.href));
 
   useEffect(() => {
     if (!navRef.current || !indicatorRef.current) return;

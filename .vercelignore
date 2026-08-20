@@ -1,0 +1,10 @@
+# El repo tiene varios proyectos Vercel distintos en la misma raiz de git
+# (elefitness = esta app, elefitness-web = "pagina web/", elefitness-proximamente
+# = "coming-soon/"). Al desplegar la app principal desde la raiz, sin esto
+# Vercel intenta subir tambien los otros proyectos enteros (con su propio
+# node_modules) y la carpeta info/ (fotos y videos originales, algunos de
+# +100MB) -- eso hacia fallar el deploy con "File size limit exceeded".
+pagina web/
+coming-soon/
+info/
+node_modules/

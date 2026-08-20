@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BarraLateral, SidebarLogout } from "@/components/barra-lateral";
-import { PestanasMovil } from "@/components/pestanas-movil";
+import { BarraInferiorMovil } from "@/components/barra-inferior-movil";
 import { createClient } from "@/lib/supabase/client";
 import {
   UsersIcon,
@@ -36,23 +36,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </BarraLateral>
 
       <div className="flex flex-1 flex-col">
-        <PestanasMovil tabs={TABS}>
-          <div className="ml-auto flex items-center gap-3 pr-3">
-            <Link href="/cambiar-contrasena" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-              Contraseña
-            </Link>
-            <button
-              onClick={cerrarSesion}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Salir
-            </button>
-          </div>
-        </PestanasMovil>
+        <header className="md:hidden flex items-center justify-end gap-3 border-b border-border px-4 py-3">
+          <Link href="/cambiar-contrasena" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            Contraseña
+          </Link>
+          <button
+            onClick={cerrarSesion}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Salir
+          </button>
+        </header>
 
-        <main className="flex-1 p-4 md:p-6 animate-[fade-in-up_0.4s_var(--ease-spring)_forwards]">
+        <main className="flex-1 p-4 pb-24 md:p-6 animate-[fade-in-up_0.4s_var(--ease-spring)_forwards]">
           <div className="mx-auto max-w-5xl">{children}</div>
         </main>
+
+        <BarraInferiorMovil tabs={TABS} />
       </div>
     </div>
   );

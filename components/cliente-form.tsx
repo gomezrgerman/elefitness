@@ -9,27 +9,51 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { clienteFormSchema } from "@/lib/validaciones";
 import { altaCliente, actualizarCliente } from "@/lib/actions/clientes";
-import type { Cliente, Usuario, Plan } from "@/lib/types";
+import type { Cliente, Usuario, Plan, Pago, MetodoPago } from "@/lib/types";
 
 // Base UI Select no admite value="" para representar "sin seleccion", asi
 // que usamos este centinela para la opcion "Cualquiera" y lo traducimos a
 // null (sin restriccion de entrenador) justo antes de validar.
 const CUALQUIER_ENTRENADOR = "cualquiera";
 
+// Mismo motivo: centinela para "sin plan asignado" (clienta "en el aire",
+// sin cobro activo), que se traduce a null antes de validar.
+const SIN_PLAN = "sin-plan";
+
+const METODOS: { value: MetodoPago; label: string }[] = [
+  { value: "stripe", label: "Stripe" },
+  { value: "efectivo", label: "Efectivo" },
+  { value: "transferencia", label: "Transferencia" },
+];
+
 interface Props {
   modo: "crear" | "editar";
   cliente?: Cliente;
   usuario?: Usuario;
+  // Pago actual de la clienta (solo en modo "editar"): sirve para no
+  // sobreescribir con el precio de catalogo un importe o metodo que Elena ya
+  // habia corregido a mano (cuota personalizada, pago parcial, etc.).
+  pago?: Pago;
   usuarios: Usuario[];
   planes: Plan[];
   onCerrar: () => void;
 }
 
-export function ClienteForm({ modo, cliente, usuario, usuarios, planes, onCerrar }: Props) {
+export function ClienteForm({ modo, cliente, usuario, pago, usuarios, planes, onCerrar }: Props) {
   const [nombre, setNombre] = useState(usuario?.nombre ?? "");
   const [email, setEmail] = useState(usuario?.email ?? "");
   const [telefono, setTelefono] = useState(usuario?.telefono ?? "");
-  const [planId, setPlanId] = useState(cliente?.planId ?? planes[0]?.id ?? "");
+  // OJO: cliente?.planId puede ser null explicitamente (clienta "en el
+  // aire") en modo editar, y eso es distinto de "no hay cliente" (modo
+  // crear, donde toca sugerir el primer plan). ?? por si solo no distingue
+  // ambos casos porque trata null y undefined igual.
+  const [planId, setPlanId] = useState(
+    modo === "editar" ? cliente?.planId ?? SIN_PLAN : planes[0]?.id ?? SIN_PLAN
+  );
+  const planInicial = planes.find((p) => p.id === (modo === "editar" ? cliente?.planId : planes[0]?.id));
+  const [importe, setImporte] = useState(String(pago?.importe ?? planInicial?.precio ?? ""));
+  const [metodo, setMetodo] = useState<MetodoPago>(pago?.metodo ?? (planInicial?.tipo === "bono" ? "efectivo" : "stripe"));
+  const sinPlan = planId === SIN_PLAN;
   const [notasRutina, setNotasRutina] = useState(cliente?.notasRutina ?? "");
   const [diasSemanaHabituales, setDiasSemanaHabituales] = useState(String(cliente?.diasSemanaHabituales ?? 1));
   const [entrenadorId, setEntrenadorId] = useState(cliente?.entrenadorRestringidoId ?? CUALQUIER_ENTRENADOR);
@@ -42,12 +66,27 @@ export function ClienteForm({ modo, cliente, usuario, usuarios, planes, onCerrar
   // al editarla -- si no, el Select se queda sin la opcion que ya tenia.
   const planesDisponibles = planes.filter((plan) => plan.activo || plan.id === cliente?.planId);
 
+  // Al elegir un plan distinto en el alta se sugiere su precio y un metodo
+  // razonable, pero siguen siendo editables -- hace falta para "Cuota
+  // personalizada" (precio de catalogo 0, Elena escribe el real) y para
+  // clientas que pagan un plan normal por un medio distinto al habitual.
+  function cambiarPlan(nuevoPlanId: string) {
+    setPlanId(nuevoPlanId);
+    if (modo !== "crear") return;
+    const plan = planes.find((p) => p.id === nuevoPlanId);
+    if (!plan) return;
+    setImporte(plan.precio > 0 ? String(plan.precio) : "");
+    setMetodo(plan.tipo === "bono" ? "efectivo" : "stripe");
+  }
+
   async function guardar() {
     const resultado = clienteFormSchema.safeParse({
       nombre,
       email,
       telefono,
-      planId,
+      planId: sinPlan ? null : planId,
+      importe: sinPlan ? undefined : importe,
+      metodo: sinPlan ? undefined : metodo,
       notasRutina,
       diasSemanaHabituales,
       entrenadorRestringidoId: entrenadorId === CUALQUIER_ENTRENADOR ? null : entrenadorId,
@@ -62,6 +101,8 @@ export function ClienteForm({ modo, cliente, usuario, usuarios, planes, onCerrar
         ? await altaCliente(resultado.data)
         : await actualizarCliente(cliente!.id, {
             planId: resultado.data.planId,
+            importe: resultado.data.importe,
+            metodo: resultado.data.metodo,
             notasRutina: resultado.data.notasRutina,
             diasSemanaHabituales: resultado.data.diasSemanaHabituales,
             entrenadorRestringidoId: resultado.data.entrenadorRestringidoId,
@@ -95,13 +136,18 @@ export function ClienteForm({ modo, cliente, usuario, usuarios, planes, onCerrar
           </div>
           <div>
             <Label htmlFor="plan">Plan</Label>
-            <Select value={planId} onValueChange={(valor) => valor && setPlanId(valor)}>
+            <Select value={planId} onValueChange={(valor) => valor && cambiarPlan(valor)}>
               <SelectTrigger id="plan">
                 <SelectValue placeholder="Selecciona un plan">
-                  {(valor: string) => planesDisponibles.find((plan) => plan.id === valor)?.nombre ?? "Selecciona un plan"}
+                  {(valor: string) =>
+                    valor === SIN_PLAN
+                      ? "Sin plan (de baja)"
+                      : planesDisponibles.find((plan) => plan.id === valor)?.nombre ?? "Selecciona un plan"
+                  }
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={SIN_PLAN}>Sin plan (de baja)</SelectItem>
                 {planesDisponibles.map((plan) => (
                   <SelectItem key={plan.id} value={plan.id}>
                     {plan.nombre}
@@ -110,6 +156,38 @@ export function ClienteForm({ modo, cliente, usuario, usuarios, planes, onCerrar
               </SelectContent>
             </Select>
           </div>
+          {!sinPlan && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="importe">Importe (EUR)</Label>
+                <Input
+                  id="importe"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={importe}
+                  onChange={(e) => setImporte(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="metodo">Metodo de pago</Label>
+                <Select value={metodo} onValueChange={(valor) => valor && setMetodo(valor as MetodoPago)}>
+                  <SelectTrigger id="metodo">
+                    <SelectValue placeholder="Metodo">
+                      {(valor: string) => METODOS.find((m) => m.value === valor)?.label ?? "Metodo"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {METODOS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
           <div>
             <Label htmlFor="dias-semana">Dias por semana que entrena</Label>
             <Input

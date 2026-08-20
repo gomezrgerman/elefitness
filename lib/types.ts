@@ -32,18 +32,27 @@ export interface Plan {
   // Un plan retirado (precio antiguo) sigue siendo un id valido para las
   // clientas que ya lo tenian; solo deja de ofrecerse en las altas nuevas.
   activo: boolean;
+  // Price ID de la cuenta Stripe propia de Elefitness (no la de Harbiz).
+  // null = este plan todavia no tiene precio creado en Stripe -- no se
+  // puede cobrar por la app hasta que se rellene.
+  stripePriceId: string | null;
 }
 
 export interface Cliente {
   id: string;
   usuarioId: string;
   estado: EstadoCliente;
-  planId: string;
+  // null = sin plan asignado (clienta "en el aire": temporada, horario muy
+  // variable) que Elena quiere tener visible aunque no este cobrando nada.
+  planId: string | null;
   notasRutina: string;
   diasSemanaHabituales: number;
   deudaCreditos: number;
   // null = sin restriccion, la clienta ve las clases de cualquier entrenador.
   entrenadorRestringidoId: string | null;
+  // Clase de la rejilla fija en la que se reserva sola cada semana (solo
+  // mensualidades). null = sin horario fijo, reserva semana a semana.
+  claseHabitualId: string | null;
   createdAt: string;
 }
 

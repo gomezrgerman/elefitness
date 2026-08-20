@@ -1,9 +1,14 @@
 import { ListaClientes } from "@/components/lista-clientes";
 import { EstadoVacio } from "@/components/estado-vacio";
-import { obtenerClientes, obtenerUsuarios, obtenerPlanes } from "@/lib/supabase/queries";
+import { obtenerClientes, obtenerUsuarios, obtenerPlanes, obtenerPagos } from "@/lib/supabase/queries";
 
 export default async function AdminClientesPage() {
-  const [clientes, usuarios, planes] = await Promise.all([obtenerClientes(), obtenerUsuarios(), obtenerPlanes()]);
+  const [clientes, usuarios, planes, pagos] = await Promise.all([
+    obtenerClientes(),
+    obtenerUsuarios(),
+    obtenerPlanes(),
+    obtenerPagos(),
+  ]);
 
   const activas = clientes.filter((c) => c.estado === "activo").length;
 
@@ -17,7 +22,7 @@ export default async function AdminClientesPage() {
       {clientes.length === 0 ? (
         <EstadoVacio tipo="clientes" />
       ) : (
-        <ListaClientes clientes={clientes} usuarios={usuarios} planes={planes} basePath="/admin/clientes" />
+        <ListaClientes clientes={clientes} usuarios={usuarios} planes={planes} pagos={pagos} basePath="/admin/clientes" />
       )}
     </div>
   );

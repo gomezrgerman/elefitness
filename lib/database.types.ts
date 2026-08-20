@@ -129,6 +129,7 @@ export type Database = {
       }
       clientes: {
         Row: {
+          clase_habitual_id: string | null
           created_at: string
           deuda_creditos: number
           dias_semana_habituales: number
@@ -136,10 +137,11 @@ export type Database = {
           estado: Database["public"]["Enums"]["estado_cliente_enum"]
           id: string
           notas_rutina: string
-          plan_id: string
+          plan_id: string | null
           usuario_id: string
         }
         Insert: {
+          clase_habitual_id?: string | null
           created_at?: string
           deuda_creditos?: number
           dias_semana_habituales?: number
@@ -147,10 +149,11 @@ export type Database = {
           estado?: Database["public"]["Enums"]["estado_cliente_enum"]
           id?: string
           notas_rutina?: string
-          plan_id: string
+          plan_id?: string | null
           usuario_id: string
         }
         Update: {
+          clase_habitual_id?: string | null
           created_at?: string
           deuda_creditos?: number
           dias_semana_habituales?: number
@@ -158,10 +161,17 @@ export type Database = {
           estado?: Database["public"]["Enums"]["estado_cliente_enum"]
           id?: string
           notas_rutina?: string
-          plan_id?: string
+          plan_id?: string | null
           usuario_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "clientes_clase_habitual_id_fkey"
+            columns: ["clase_habitual_id"]
+            isOneToOne: false
+            referencedRelation: "clases"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clientes_entrenador_restringido_id_fkey"
             columns: ["entrenador_restringido_id"]
@@ -535,6 +545,16 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      mover_horario_cliente: {
+        Args: {
+          p_clase_destino_id: string
+          p_clase_origen_id: string | null
+          p_cliente_id: string
+          p_desde: string
+          p_marcar_fijo: boolean
+        }
+        Returns: number
       }
       ocupacion_sesiones: {
         Args: never

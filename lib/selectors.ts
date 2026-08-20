@@ -11,7 +11,7 @@ export function clientePorId(clientes: Cliente[], id: string): Cliente | undefin
   return clientes.find((c) => c.id === id);
 }
 
-export function planPorId(planes: Plan[], id: string): Plan | undefined {
+export function planPorId(planes: Plan[], id: string | null): Plan | undefined {
   return planes.find((p) => p.id === id);
 }
 

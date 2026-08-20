@@ -4,26 +4,39 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { TablesUpdate } from "@/lib/database.types";
 import { clienteFormSchema } from "@/lib/validaciones";
 import { hoyEnEspana } from "@/lib/fechas";
 
-const actualizarClienteSchema = z.object({
-  planId: z.string().min(1),
-  notasRutina: z.string().max(2000),
-  diasSemanaHabituales: z.coerce
-    .number()
-    .int("Los dias por semana deben ser un numero entero")
-    .min(1, "Minimo 1 dia por semana")
-    .max(7, "Maximo 7 dias por semana"),
-  entrenadorRestringidoId: z.string().uuid("Entrenador invalido").nullable(),
-});
+const actualizarClienteSchema = z
+  .object({
+    planId: z.string().nullable(),
+    importe: z.coerce.number().positive("El importe debe ser mayor que 0").optional(),
+    metodo: z.enum(["stripe", "efectivo", "transferencia"]).optional(),
+    notasRutina: z.string().max(2000),
+    diasSemanaHabituales: z.coerce
+      .number()
+      .int("Los dias por semana deben ser un numero entero")
+      .min(1, "Minimo 1 dia por semana")
+      .max(7, "Maximo 7 dias por semana"),
+    entrenadorRestringidoId: z.string().uuid("Entrenador invalido").nullable(),
+  })
+  .superRefine((datos, ctx) => {
+    if (!datos.planId) return;
+    if (datos.importe === undefined) {
+      ctx.addIssue({ path: ["importe"], code: z.ZodIssueCode.custom, message: "El importe debe ser mayor que 0" });
+    }
+    if (datos.metodo === undefined) {
+      ctx.addIssue({ path: ["metodo"], code: z.ZodIssueCode.custom, message: "Selecciona un metodo de pago" });
+    }
+  });
 
 export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
   const resultado = clienteFormSchema.safeParse(datos);
   if (!resultado.success) {
     return { error: resultado.error.issues[0]?.message ?? "Datos invalidos" };
   }
-  const { nombre, email, telefono, planId, notasRutina, diasSemanaHabituales, entrenadorRestringidoId } = resultado.data;
+  const { nombre, email, telefono, planId, importe, metodo, notasRutina, diasSemanaHabituales, entrenadorRestringidoId } = resultado.data;
 
   const supabase = await createClient();
   const {
@@ -56,11 +69,15 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
     return { error: errorUsers.message };
   }
 
+  // Sin plan = clienta "en el aire" (temporada, horario muy variable) que
+  // Elena quiere tener a mano sin cobro activo: se da de alta directamente
+  // de baja, sin fila de pago ni bono, hasta que vuelva y se le asigne plan.
   const { data: cliente, error: errorCliente } = await supabase
     .from("clientes")
     .insert({
       usuario_id: nuevoAuthUser.user.id,
       plan_id: planId,
+      estado: planId ? "activo" : "baja",
       notas_rutina: notasRutina,
       dias_semana_habituales: diasSemanaHabituales,
       entrenador_restringido_id: entrenadorRestringidoId,
@@ -72,42 +89,53 @@ export async function altaCliente(datos: unknown): Promise<{ error?: string }> {
     return { error: errorCliente?.message ?? "No se pudo crear la clienta" };
   }
 
-  const { data: plan, error: errorPlan } = await supabase.from("planes").select("*").eq("id", planId).single();
-  if (errorPlan || !plan) {
-    await supabase.from("clientes").delete().eq("id", cliente.id);
-    await adminClient.auth.admin.deleteUser(nuevoAuthUser.user.id);
-    return { error: errorPlan?.message ?? "No se pudo encontrar el plan" };
-  }
-
-  const fechaHoy = hoyEnEspana();
-  const { error: errorPago } = await supabase.from("pagos").insert({
-    cliente_id: cliente.id,
-    plan_id: plan.id,
-    tipo: plan.tipo,
-    metodo: plan.tipo === "mensual" ? "stripe" : "efectivo",
-    estado: "pendiente",
-    importe: plan.precio,
-    fecha_pago: fechaHoy,
-    registrado_por: admin.id,
-  });
-  if (errorPago) {
-    await supabase.from("clientes").delete().eq("id", cliente.id);
-    await adminClient.auth.admin.deleteUser(nuevoAuthUser.user.id);
-    return { error: errorPago.message };
-  }
-
-  if (plan.tipo === "bono") {
-    const { error: errorBono } = await supabase.rpc("crear_bono", {
-      p_cliente_id: cliente.id,
-      p_plan_id: plan.id,
-      p_creditos_totales: plan.clases_incluidas ?? 0,
-      p_fecha_compra: fechaHoy,
-      p_tipo: "normal",
-    });
-    if (errorBono) {
+  if (planId) {
+    // El schema garantiza importe/metodo definidos cuando hay planId (ver
+    // superRefine en clienteFormSchema); esta comprobacion es solo para que
+    // TypeScript lo sepa tambien.
+    if (importe === undefined || metodo === undefined) {
       await supabase.from("clientes").delete().eq("id", cliente.id);
       await adminClient.auth.admin.deleteUser(nuevoAuthUser.user.id);
-      return { error: errorBono.message };
+      return { error: "Falta el importe o el metodo de pago" };
+    }
+
+    const { data: plan, error: errorPlan } = await supabase.from("planes").select("*").eq("id", planId).single();
+    if (errorPlan || !plan) {
+      await supabase.from("clientes").delete().eq("id", cliente.id);
+      await adminClient.auth.admin.deleteUser(nuevoAuthUser.user.id);
+      return { error: errorPlan?.message ?? "No se pudo encontrar el plan" };
+    }
+
+    const fechaHoy = hoyEnEspana();
+    const { error: errorPago } = await supabase.from("pagos").insert({
+      cliente_id: cliente.id,
+      plan_id: plan.id,
+      tipo: plan.tipo,
+      metodo,
+      estado: "pendiente",
+      importe,
+      fecha_pago: fechaHoy,
+      registrado_por: admin.id,
+    });
+    if (errorPago) {
+      await supabase.from("clientes").delete().eq("id", cliente.id);
+      await adminClient.auth.admin.deleteUser(nuevoAuthUser.user.id);
+      return { error: errorPago.message };
+    }
+
+    if (plan.tipo === "bono") {
+      const { error: errorBono } = await supabase.rpc("crear_bono", {
+        p_cliente_id: cliente.id,
+        p_plan_id: plan.id,
+        p_creditos_totales: plan.clases_incluidas ?? 0,
+        p_fecha_compra: fechaHoy,
+        p_tipo: "normal",
+      });
+      if (errorBono) {
+        await supabase.from("clientes").delete().eq("id", cliente.id);
+        await adminClient.auth.admin.deleteUser(nuevoAuthUser.user.id);
+        return { error: errorBono.message };
+      }
     }
   }
 
@@ -140,7 +168,14 @@ export async function reactivarCliente(clienteId: string): Promise<{ error?: str
 
 export async function actualizarCliente(
   clienteId: string,
-  datos: { planId: string; notasRutina: string; diasSemanaHabituales: number; entrenadorRestringidoId: string | null }
+  datos: {
+    planId: string | null;
+    importe?: number;
+    metodo?: string;
+    notasRutina: string;
+    diasSemanaHabituales: number;
+    entrenadorRestringidoId: string | null;
+  }
 ): Promise<{ error?: string }> {
   const resultado = actualizarClienteSchema.safeParse(datos);
   if (!resultado.success) {
@@ -150,12 +185,13 @@ export async function actualizarCliente(
   const supabase = await createClient();
 
   const { data: clienteActual } = await supabase.from("clientes").select("plan_id").eq("id", clienteId).single();
-  const cambiaPlan = Boolean(clienteActual) && datos.planId !== clienteActual!.plan_id;
+  const nuevoPlanId = resultado.data.planId;
+  const cambiaPlan = Boolean(clienteActual) && nuevoPlanId !== (clienteActual!.plan_id ?? null);
 
   const { data: clienteActualizado, error } = await supabase
     .from("clientes")
     .update({
-      plan_id: resultado.data.planId,
+      plan_id: nuevoPlanId,
       notas_rutina: resultado.data.notasRutina,
       dias_semana_habituales: resultado.data.diasSemanaHabituales,
       entrenador_restringido_id: resultado.data.entrenadorRestringidoId,
@@ -165,9 +201,16 @@ export async function actualizarCliente(
   if (error) return { error: error.message };
   if (!clienteActualizado || clienteActualizado.length === 0) return { error: "No autorizado" };
 
-  if (cambiaPlan) {
-    const { data: nuevoPlan, error: errorNuevoPlan } = await supabase.from("planes").select("*").eq("id", datos.planId).single();
-    if (errorNuevoPlan || !nuevoPlan) return { error: errorNuevoPlan?.message ?? "No se pudo encontrar el nuevo plan" };
+  // Sin plan nuevo (se deja "en el aire") no hay pago que sincronizar ni
+  // crear: el registro de pago anterior, si lo tenia, se deja tal cual como
+  // historico hasta que vuelva a asignarsele un plan.
+  if (nuevoPlanId) {
+    // El schema garantiza importe/metodo definidos cuando hay planId (ver
+    // superRefine en actualizarClienteSchema); esta comprobacion es solo
+    // para que TypeScript lo sepa tambien.
+    if (resultado.data.importe === undefined || resultado.data.metodo === undefined) {
+      return { error: "Falta el importe o el metodo de pago" };
+    }
 
     const { data: pagoExistente } = await supabase
       .from("pagos")
@@ -175,13 +218,47 @@ export async function actualizarCliente(
       .eq("cliente_id", clienteId)
       .limit(1)
       .maybeSingle();
+
+    const { data: nuevoPlanPago, error: errorNuevoPlanPago } = await supabase
+      .from("planes")
+      .select("id, tipo")
+      .eq("id", nuevoPlanId)
+      .single();
+    if (errorNuevoPlanPago || !nuevoPlanPago) return { error: errorNuevoPlanPago?.message ?? "No se pudo encontrar el nuevo plan" };
+
     if (pagoExistente) {
-      const { error: errorActualizarPago } = await supabase
-        .from("pagos")
-        .update({ plan_id: nuevoPlan.id, tipo: nuevoPlan.tipo, importe: nuevoPlan.precio })
-        .eq("id", pagoExistente.id);
+      // El importe y el metodo se sincronizan siempre, cambie o no el plan:
+      // es el mismo sitio donde Elena corrige una cuota personalizada o un
+      // pago parcial, sin tener que cambiar de plan para poder tocarlos.
+      const cambiosPago: TablesUpdate<"pagos"> = {
+        importe: resultado.data.importe,
+        metodo: resultado.data.metodo,
+      };
+      if (cambiaPlan) {
+        cambiosPago.plan_id = nuevoPlanPago.id;
+        cambiosPago.tipo = nuevoPlanPago.tipo;
+      }
+      const { error: errorActualizarPago } = await supabase.from("pagos").update(cambiosPago).eq("id", pagoExistente.id);
       if (errorActualizarPago) return { error: errorActualizarPago.message };
+    } else {
+      // Antes no tenia plan (ni pago), se le acaba de asignar uno.
+      const { error: errorCrearPago } = await supabase.from("pagos").insert({
+        cliente_id: clienteId,
+        plan_id: nuevoPlanPago.id,
+        tipo: nuevoPlanPago.tipo,
+        metodo: resultado.data.metodo,
+        estado: "pendiente",
+        importe: resultado.data.importe,
+        fecha_pago: hoyEnEspana(),
+        registrado_por: (await supabase.auth.getUser()).data.user?.id ?? "",
+      });
+      if (errorCrearPago) return { error: errorCrearPago.message };
     }
+  }
+
+  if (cambiaPlan && nuevoPlanId) {
+    const { data: nuevoPlan, error: errorNuevoPlan } = await supabase.from("planes").select("*").eq("id", nuevoPlanId).single();
+    if (errorNuevoPlan || !nuevoPlan) return { error: errorNuevoPlan?.message ?? "No se pudo encontrar el nuevo plan" };
 
     const { data: bonoActivo } = await supabase
       .from("bonos_cliente")

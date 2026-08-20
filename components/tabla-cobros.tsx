@@ -25,6 +25,9 @@ export function TablaCobros({ pagos, clientes, usuarios, planes, soloLectura = f
   const [procesando, setProcesando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
+  // Importe editado por fila antes de confirmar el cobro (pago parcial o
+  // cuota personalizada). Sin entrada aqui se usa el importe que ya tenia.
+  const [importesEditados, setImportesEditados] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   const filtrados = useMemo(() => {
@@ -52,7 +55,12 @@ export function TablaCobros({ pagos, clientes, usuarios, planes, soloLectura = f
     // desplazarse hacia adelante de forma permanente. Solo se ancla a hoy si
     // todavia no tenia ningun ciclo (proximo_cobro nulo, primer pago).
     const proximoCobro = pago.tipo === "mensual" ? sumarMesesMismoDia(pago.proximoCobro ?? fechaHoy, 1) : null;
-    const respuesta = await registrarPago({ pagoId: pago.id, fechaPago: fechaHoy, proximoCobro });
+    const importeEditado = importesEditados[pago.id];
+    const importe =
+      importeEditado !== undefined && importeEditado !== "" && Number(importeEditado) !== pago.importe
+        ? Number(importeEditado)
+        : undefined;
+    const respuesta = await registrarPago({ pagoId: pago.id, fechaPago: fechaHoy, proximoCobro, importe });
     if (respuesta.error) {
       setError(respuesta.error);
       toast(respuesta.error, "error");
@@ -101,7 +109,20 @@ export function TablaCobros({ pagos, clientes, usuarios, planes, soloLectura = f
                 <TableCell className="font-medium">{usuario?.nombre ?? "—"}</TableCell>
                 <TableCell>{plan?.nombre ?? "—"}</TableCell>
                 <TableCell className="capitalize">{pago.metodo}</TableCell>
-                <TableCell>{pago.importe.toFixed(2)} EUR</TableCell>
+                <TableCell>
+                  {!soloLectura && pago.estado !== "al_dia" ? (
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className="h-8 w-24"
+                      value={importesEditados[pago.id] ?? pago.importe}
+                      onChange={(e) => setImportesEditados((prev) => ({ ...prev, [pago.id]: e.target.value }))}
+                    />
+                  ) : (
+                    `${pago.importe.toFixed(2)} EUR`
+                  )}
+                </TableCell>
                 <TableCell>{pago.ultimoCobro ?? "—"}</TableCell>
                 <TableCell>{pago.proximoCobro ?? "—"}</TableCell>
                 <TableCell>

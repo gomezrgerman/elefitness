@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Elefitness — Muy pronto</title>
+  <meta name="description" content="Estamos renovando la web de Elefitness, centro de entrenamiento personal en Valencia. Muy pronto podrás conocernos aquí. Mientras tanto, escríbenos por WhatsApp o síguenos en Instagram." />
+  <meta property="og:title" content="Elefitness — Muy pronto" />
+  <meta property="og:description" content="Estamos renovando nuestra web. Mientras tanto, escríbenos por WhatsApp o síguenos en Instagram." />
+  <meta property="og:image" content="/espacio-logo.jpg" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23171918'/%3E%3Ctext x='50' y='68' font-family='Arial, sans-serif' font-weight='700' font-size='54' fill='%2378A8A2' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --color-bg: #171918;
+      --color-text: #F4F4EF;
+      --color-text-dark: #161817;
+      --color-muted: #A7ADAA;
+      --color-border: rgba(255, 255, 255, 0.14);
+      --color-accent: #78A8A2;
+      --color-accent-soft: #A9C7C2;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+
+    body {
+      font-family: "Manrope", system-ui, sans-serif;
+      background: var(--color-bg);
+      color: var(--color-text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      overflow: hidden;
+    }
+
+    .backdrop img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      animation: ken-burns 30s ease-in-out infinite alternate;
+      will-change: transform;
+    }
+
+    .backdrop::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to top,
+        var(--color-bg) 0%,
+        rgba(23, 25, 24, 0.88) 45%,
+        rgba(23, 25, 24, 0.55) 100%
+      );
+    }
+
+    @keyframes ken-burns {
+      from { transform: scale(1); }
+      to { transform: scale(1.08); }
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8vh 6vw 4vh;
+      gap: 1.5rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid var(--color-border);
+      background: rgba(23, 25, 24, 0.5);
+      backdrop-filter: blur(6px);
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: rgba(244, 244, 239, 0.85);
+      opacity: 0;
+      animation: fade-in-up 0.6s ease-out 0.1s forwards;
+    }
+
+    .badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-accent);
+      flex-shrink: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+      font-size: clamp(2.5rem, 7vw, 5.5rem);
+      max-width: 18ch;
+      opacity: 0;
+      animation: fade-in-up 0.7s ease-out 0.25s forwards;
+    }
+
+    h1 span {
+      display: block;
+    }
+
+    .lede {
+      margin: 0;
+      max-width: 40ch;
+      font-size: clamp(1.05rem, 1.6vw, 1.375rem);
+      line-height: 1.55;
+      color: var(--color-muted);
+      opacity: 0;
+      animation: fade-in-up 0.7s ease-out 0.4s forwards;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 0.5rem;
+      opacity: 0;
+      animation: fade-in-up 0.7s ease-out 0.55s forwards;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.9rem 1.75rem;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: transform 0.25s ease, background-color 0.25s ease, border-color 0.25s ease;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn svg {
+      width: 1.1rem;
+      height: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .btn-primary {
+      background: var(--color-accent);
+      color: var(--color-text-dark);
+      border: 1px solid var(--color-accent);
+    }
+
+    .btn-primary:hover {
+      background: var(--color-accent-soft);
+      border-color: var(--color-accent-soft);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--color-text);
+      border: 1px solid rgba(244, 244, 239, 0.4);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--color-accent);
+      color: var(--color-accent);
+    }
+
+    footer {
+      padding: 1.75rem 6vw 2.25rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: rgba(167, 173, 170, 0.85);
+      opacity: 0;
+      animation: fade-in-up 0.7s ease-out 0.7s forwards;
+    }
+
+    footer a {
+      color: inherit;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(167, 173, 170, 0.4);
+    }
+
+    footer a:hover {
+      color: var(--color-accent-soft);
+      border-color: var(--color-accent-soft);
+    }
+
+    @keyframes fade-in-up {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      .badge, h1, .lede, .actions, footer {
+        opacity: 1;
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true">
+    <img src="/espacio-logo.jpg" alt="" />
+  </div>
+
+  <main>
+    <p class="badge"><span class="dot" aria-hidden="true"></span>Sitio en construcción</p>
+
+    <h1><span>Estamos preparando</span><span>algo nuevo.</span></h1>
+
+    <p class="lede">
+      Estamos renovando la web de Elefitness. Muy pronto podrás conocer el centro,
+      nuestro método y reservar tu primera sesión desde aquí.
+    </p>
+
+    <div class="actions">
+      <a
+        class="btn btn-primary"
+        href="https://wa.me/34663748766?text=Hola%2C%20he%20visto%20que%20la%20web%20est%C3%A1%20en%20construcci%C3%B3n%2C%20%C2%BFme%20puedes%20dar%20informaci%C3%B3n%3F"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2.05 22l5.25-1.38a9.87 9.87 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.13a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.36c0-4.54 3.7-8.24 8.25-8.24a8.19 8.19 0 0 1 5.83 2.42 8.19 8.19 0 0 1 2.41 5.83c0 4.55-3.7 8.24-8.25 8.24zm4.52-6.17c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.99-1.22-.73-.66-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43s.17-.25.25-.42c.08-.17.04-.31-.02-.44-.06-.13-.56-1.34-.77-1.84-.2-.48-.41-.42-.56-.42-.14-.01-.31-.01-.48-.01s-.44.06-.68.31c-.23.25-.89.87-.89 2.12s.91 2.46 1.04 2.63c.13.17 1.79 2.73 4.34 3.83.61.26 1.08.42 1.45.53.61.19 1.16.17 1.6.1.49-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
+        Escríbenos por WhatsApp
+      </a>
+      <a
+        class="btn btn-secondary"
+        href="https://www.instagram.com/grupo_elefitness/"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>
+        Síguenos en Instagram
+      </a>
+    </div>
+  </main>
+
+  <footer>
+    Elefitness · Plaça d'Enric Granados, 15, Patraix, València · <a href="tel:+34656974514">656 97 45 14</a>
+  </footer>
+</body>
+</html>

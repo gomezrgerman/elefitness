@@ -86,6 +86,23 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
+// Las rutas /api/* (hoy solo el webhook de Stripe) gestionan su propia
+// autenticacion -- la firma de Stripe, no una sesion de usuario -- asi que
+// quedan fuera de este middleware. Sin esta exclusion, una peticion de
+// Stripe (sin cookie de sesion) se redirigia a /login antes de llegar al
+// route handler, y el webhook nunca se ejecutaba.
+//
+// Los ficheros estaticos (manifest.webmanifest, sw.js, iconos...) tampoco
+// necesitan sesion. El mismo bug que rompia el webhook rompia tambien el
+// manifest y el service worker de la PWA: un navegador sin sesion pedia
+// /manifest.webmanifest o /sw.js, el middleware los redirigia (307) a
+// /login, y ni el manifest se leia ni el service worker podia registrarse
+// (los navegadores rechazan un redirect en la respuesta de un service
+// worker). Se excluye por extension en vez de listar cada fichero uno a
+// uno, para que no vuelva a pasar con el proximo asset que se añada a
+// public/.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|api|.*\\.(?:png|ico|svg|js|json|webmanifest|txt|xml)$).*)",
+  ],
 };

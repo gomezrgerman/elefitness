@@ -9,13 +9,13 @@ import {
   obtenerBonosCliente,
   obtenerSesiones,
   obtenerClases,
-  obtenerHistorialDeCliente,
+  obtenerReservasDeCliente,
 } from "@/lib/supabase/queries";
 import { clientePorId, usuarioPorId } from "@/lib/selectors";
 
 export default async function EntrenadorFichaClientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [clientes, usuarios, planes, pagos, bonos, sesiones, clases, historial] = await Promise.all([
+  const [clientes, usuarios, planes, pagos, bonos, sesiones, clases, reservas] = await Promise.all([
     obtenerClientes(),
     obtenerUsuarios(),
     obtenerPlanes(),
@@ -23,7 +23,7 @@ export default async function EntrenadorFichaClientePage({ params }: { params: P
     obtenerBonosCliente(),
     obtenerSesiones(),
     obtenerClases(),
-    obtenerHistorialDeCliente(id),
+    obtenerReservasDeCliente(id),
   ]);
 
   const cliente = clientePorId(clientes, id);
@@ -43,7 +43,7 @@ export default async function EntrenadorFichaClientePage({ params }: { params: P
         planes={planes}
         pagos={pagos.filter((p) => p.clienteId === cliente.id)}
         bonos={bonos.filter((b) => b.clienteId === cliente.id)}
-        historial={historial}
+        reservas={reservas}
         sesiones={sesiones}
         clases={clases}
       />

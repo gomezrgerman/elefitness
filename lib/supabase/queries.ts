@@ -6,7 +6,7 @@ export async function obtenerClientes(): Promise<Cliente[]> {
   const { data, error } = await supabase
     .from("clientes")
     .select(
-      "id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, entrenador_restringido_id, created_at"
+      "id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, entrenador_restringido_id, clase_habitual_id, created_at"
     );
   if (error) throw error;
   return (data ?? []).map((c) => ({
@@ -18,6 +18,7 @@ export async function obtenerClientes(): Promise<Cliente[]> {
     diasSemanaHabituales: c.dias_semana_habituales,
     deudaCreditos: c.deuda_creditos,
     entrenadorRestringidoId: c.entrenador_restringido_id,
+    claseHabitualId: c.clase_habitual_id,
     createdAt: c.created_at,
   }));
 }
@@ -27,7 +28,7 @@ export async function obtenerClienteDeUsuario(usuarioId: string): Promise<Client
   const { data, error } = await supabase
     .from("clientes")
     .select(
-      "id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, entrenador_restringido_id, created_at"
+      "id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, entrenador_restringido_id, clase_habitual_id, created_at"
     )
     .eq("usuario_id", usuarioId)
     .maybeSingle();
@@ -42,6 +43,7 @@ export async function obtenerClienteDeUsuario(usuarioId: string): Promise<Client
     diasSemanaHabituales: data.dias_semana_habituales,
     deudaCreditos: data.deuda_creditos,
     entrenadorRestringidoId: data.entrenador_restringido_id,
+    claseHabitualId: data.clase_habitual_id,
     createdAt: data.created_at,
   };
 }
@@ -61,7 +63,9 @@ export async function obtenerUsuarios(): Promise<Usuario[]> {
 
 export async function obtenerPlanes(): Promise<Plan[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("planes").select("id, nombre, precio, tipo, clases_incluidas, activo");
+  const { data, error } = await supabase
+    .from("planes")
+    .select("id, nombre, precio, tipo, clases_incluidas, activo, stripe_price_id");
   if (error) throw error;
   return (data ?? []).map((p) => ({
     id: p.id,
@@ -70,6 +74,7 @@ export async function obtenerPlanes(): Promise<Plan[]> {
     tipo: p.tipo,
     clasesIncluidas: p.clases_incluidas,
     activo: p.activo,
+    stripePriceId: p.stripe_price_id,
   }));
 }
 
@@ -154,6 +159,27 @@ export async function obtenerReservasConBonoDeCliente(clienteId: string): Promis
     .eq("cliente_id", clienteId)
     .not("bono_id", "is", null)
     .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    sesionId: r.sesion_id,
+    clienteId: r.cliente_id,
+    estado: r.estado,
+    asistencia: r.asistencia,
+    canceladaEn: r.cancelada_en,
+    createdAt: r.created_at,
+    bonoId: r.bono_id,
+  }));
+}
+
+// Todas las reservas de una clienta (no solo las de bono), acotadas por
+// cliente_id: alimenta el calendario de asistencia de su ficha.
+export async function obtenerReservasDeCliente(clienteId: string): Promise<Reserva[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("reservas")
+    .select("id, sesion_id, cliente_id, estado, asistencia, cancelada_en, created_at, bono_id")
+    .eq("cliente_id", clienteId);
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id,

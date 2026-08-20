@@ -2,12 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BadgeEstado } from "./badge-estado";
 import { BotonAsignarBono } from "./boton-asignar-bono";
+import { BotonCambiarHorario } from "./boton-cambiar-horario";
 import { SesionesBonoConsumidas } from "./sesiones-bono-consumidas";
+import { CalendarioAsistencia } from "./calendario-asistencia";
 import { planPorId, usuarioPorId, creditosRestantes } from "@/lib/selectors";
-import { formatearDiaLargo, hoyEnEspana } from "@/lib/fechas";
-import type {
-  Cliente, Usuario, Plan, Pago, BonoCliente, MovimientoHistorial, Sesion, Clase, Reserva,
-} from "@/lib/types";
+import { hoyEnEspana } from "@/lib/fechas";
+import type { Cliente, Usuario, Plan, Pago, BonoCliente, Sesion, Clase, Reserva } from "@/lib/types";
 
 interface Props {
   cliente: Cliente;
@@ -16,49 +16,45 @@ interface Props {
   planes: Plan[];
   pagos: Pago[];
   bonos: BonoCliente[];
-  historial: MovimientoHistorial[];
+  reservas: Reserva[];
   sesiones: Sesion[];
   clases: Clase[];
   esAdmin?: boolean;
   reservasConBono?: Reserva[];
 }
 
-const ETIQUETA_EVENTO: Record<string, string> = {
-  apuntado: "Se apunto",
-  en_lista_espera: "Entro en lista de espera",
-  desapuntado: "Se desapunto",
-  promovido_desde_lista_espera: "Entro desde lista de espera",
-  asistio: "Vino",
-  no_asistio: "Falto",
-  asistencia_corregida: "Asistencia corregida",
-};
-
 export function FichaCliente({
-  cliente, usuario, usuarios, planes, pagos, bonos, historial, sesiones, clases, esAdmin = false, reservasConBono = [],
+  cliente, usuario, usuarios, planes, pagos, bonos, reservas, sesiones, clases, esAdmin = false, reservasConBono = [],
 }: Props) {
   const plan = planPorId(planes, cliente.planId);
   const entrenador = cliente.entrenadorRestringidoId ? usuarioPorId(usuarios, cliente.entrenadorRestringidoId) : undefined;
+  const claseHabitual = cliente.claseHabitualId ? clases.find((c) => c.id === cliente.claseHabitualId) : undefined;
   const hoy = hoyEnEspana();
   const bonosActivos = bonos.filter((b) => b.activo && (!b.fechaCaducidad || b.fechaCaducidad >= hoy));
   // Un plan de bono retirado (precio antiguo) no se ofrece al asignar uno
   // nuevo, solo sigue siendo valido para quien ya lo tenia.
   const planesBono = planes.filter((p) => p.tipo === "bono" && p.activo);
 
-  function descripcionDeSesion(sesionId: string): string {
-    const sesion = sesiones.find((s) => s.id === sesionId);
-    if (!sesion) return "Clase eliminada";
-    const clase = clases.find((c) => c.id === sesion.claseId);
-    return `${formatearDiaLargo(sesion.fecha)}${clase ? ` · ${clase.horaInicio}` : ""}`;
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <Card>
-        <CardHeader>
-          <CardTitle>{usuario.nombre}</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {usuario.email} · {usuario.telefono}
-          </p>
+        <CardHeader className="flex flex-row items-start justify-between gap-2">
+          <div>
+            <CardTitle>{usuario.nombre}</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {usuario.email} · {usuario.telefono}
+            </p>
+          </div>
+          {esAdmin && (
+            <BotonCambiarHorario
+              clienteId={cliente.id}
+              claseHabitualId={cliente.claseHabitualId}
+              planTipo={plan?.tipo ?? null}
+              clases={clases}
+              usuarios={usuarios}
+              hoy={hoy}
+            />
+          )}
         </CardHeader>
         <CardContent className="flex flex-col gap-2 text-sm">
           <div className="flex items-center gap-2">
@@ -76,6 +72,12 @@ export function FichaCliente({
           <p>
             <span className="text-muted-foreground">Entrena con: </span>
             {entrenador?.nombre ?? "Cualquiera"}
+          </p>
+          <p>
+            <span className="text-muted-foreground">Horario fijo: </span>
+            {claseHabitual
+              ? `${claseHabitual.dia.charAt(0).toUpperCase() + claseHabitual.dia.slice(1)} ${claseHabitual.horaInicio}–${claseHabitual.horaFin}`
+              : "Sin horario fijo (reserva semana a semana)"}
           </p>
           {cliente.deudaCreditos > 0 && (
             <p className="text-amber-700">
@@ -153,21 +155,10 @@ export function FichaCliente({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Historial de asistencia</CardTitle>
+          <CardTitle className="text-base">Asistencia</CardTitle>
         </CardHeader>
         <CardContent>
-          {historial.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin movimientos todavia.</p>
-          ) : (
-            <div className="flex flex-col gap-2 text-sm">
-              {historial.map((movimiento) => (
-                <div key={movimiento.id} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 last:border-b-0">
-                  <span>{ETIQUETA_EVENTO[movimiento.evento] ?? movimiento.evento}</span>
-                  <span className="text-muted-foreground">{descripcionDeSesion(movimiento.sesionId)}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          <CalendarioAsistencia reservas={reservas} sesiones={sesiones} />
         </CardContent>
       </Card>
     </div>

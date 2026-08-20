@@ -22,7 +22,11 @@ interface Props {
   onCerrar: () => void;
 }
 
-function etiquetaClase(clase: Clase, usuarios: Usuario[]): string {
+// clase puede no encontrarse: el render prop de SelectValue se invoca
+// tambien con el valor inicial (SIN_ORIGEN, o "" antes de elegir destino),
+// que no corresponde a ninguna clase real.
+function etiquetaClase(clase: Clase | undefined, usuarios: Usuario[]): string | undefined {
+  if (!clase) return undefined;
   const dia = clase.dia.charAt(0).toUpperCase() + clase.dia.slice(1);
   const entrenador = usuarioPorId(usuarios, clase.entrenadorId);
   return `${dia} ${clase.horaInicio}–${clase.horaFin}${entrenador ? ` · ${entrenador.nombre}` : ""}`;
@@ -87,7 +91,8 @@ export function CambiarHorarioDialogo({ clienteId, claseHabitualId, planTipo, cl
                   {(valor: string) =>
                     valor === SIN_ORIGEN
                       ? "Ninguno (solo añadir al nuevo)"
-                      : etiquetaClase(clasesRecurrentes.find((c) => c.id === valor)!, usuarios)
+                      : etiquetaClase(clasesRecurrentes.find((c) => c.id === valor), usuarios) ??
+                        "Ninguno (solo añadir al nuevo)"
                   }
                 </SelectValue>
               </SelectTrigger>
@@ -107,7 +112,9 @@ export function CambiarHorarioDialogo({ clienteId, claseHabitualId, planTipo, cl
             <Select value={claseDestinoId} onValueChange={(valor) => valor && setClaseDestinoId(valor)}>
               <SelectTrigger id="clase-destino" className="w-full">
                 <SelectValue placeholder="Selecciona el horario nuevo">
-                  {(valor: string) => etiquetaClase(clasesRecurrentes.find((c) => c.id === valor)!, usuarios)}
+                  {(valor: string) =>
+                    etiquetaClase(clasesRecurrentes.find((c) => c.id === valor), usuarios) ?? "Selecciona el horario nuevo"
+                  }
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>

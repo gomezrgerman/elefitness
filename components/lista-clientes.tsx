@@ -85,13 +85,13 @@ export function ListaClientes({ clientes, usuarios, planes, pagos = [], basePath
   return (
     <div className="flex flex-col gap-4">
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex rounded-lg border p-0.5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="grid grid-cols-2 gap-0.5 rounded-lg border p-0.5 sm:inline-flex sm:w-auto">
           <button
             type="button"
             onClick={() => setVista("activas")}
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              "min-h-11 rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:min-h-0",
               vista === "activas" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -101,14 +101,14 @@ export function ListaClientes({ clientes, usuarios, planes, pagos = [], basePath
             type="button"
             onClick={() => setVista("inactivas")}
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              "min-h-11 rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:min-h-0",
               vista === "inactivas" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
             Inactivas ({inactivas.length})
           </button>
         </div>
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative sm:max-w-sm sm:flex-1">
           <SearchIcon className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Buscar clienta..."
@@ -118,14 +118,42 @@ export function ListaClientes({ clientes, usuarios, planes, pagos = [], basePath
           />
         </div>
         {!soloLectura && (
-          <Button onClick={() => setCreando(true)}>+ Nueva clienta</Button>
+          <Button className="min-h-11 sm:w-auto" onClick={() => setCreando(true)}>
+            + Nueva clienta
+          </Button>
         )}
       </div>
-      <Table>
+
+      {/* Movil: tarjetas apiladas, mas facil de tocar y leer que una tabla
+          estrecha con columnas ocultas. Desktop/tablet (md+): tabla. */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {filtrados.map((cliente, idx) => {
+          const usuario = usuarioPorId(usuarios, cliente.usuarioId);
+          const plan = planPorId(planes, cliente.planId);
+          if (!usuario) return null;
+          return (
+            <TarjetaCliente
+              key={cliente.id}
+              idx={idx}
+              cliente={cliente}
+              usuario={usuario}
+              plan={plan}
+              basePath={basePath}
+              soloLectura={soloLectura}
+              pendiente={pendiente}
+              onEditar={() => setClienteEnEdicion(cliente)}
+              onBaja={() => darDeBaja(cliente.id)}
+              onReactivar={() => reactivar(cliente.id)}
+            />
+          );
+        })}
+      </div>
+
+      <Table className="hidden md:table">
         <TableHeader>
           <TableRow>
             <TableHead>Nombre</TableHead>
-            <TableHead className="hidden sm:table-cell">Contacto</TableHead>
+            <TableHead>Contacto</TableHead>
             <TableHead>Plan</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead className="hidden lg:table-cell">Notas de rutina</TableHead>
@@ -155,7 +183,7 @@ export function ListaClientes({ clientes, usuarios, planes, pagos = [], basePath
                     {usuario.nombre}
                   </Link>
                 </TableCell>
-                <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                <TableCell className="text-sm text-muted-foreground">
                   {usuario.email}
                   <br />
                   {usuario.telefono}
@@ -214,6 +242,70 @@ export function ListaClientes({ clientes, usuarios, planes, pagos = [], basePath
           planes={planes}
           onCerrar={() => setClienteEnEdicion(null)}
         />
+      )}
+    </div>
+  );
+}
+
+interface TarjetaClienteProps {
+  idx: number;
+  cliente: Cliente;
+  usuario: Usuario;
+  plan: Plan | undefined;
+  basePath: string;
+  soloLectura: boolean;
+  pendiente: boolean;
+  onEditar: () => void;
+  onBaja: () => void;
+  onReactivar: () => void;
+}
+
+function TarjetaCliente({
+  idx, cliente, usuario, plan, basePath, soloLectura, pendiente, onEditar, onBaja, onReactivar,
+}: TarjetaClienteProps) {
+  return (
+    <div
+      className={cn(
+        "opacity-0 flex flex-col gap-3 rounded-lg border bg-card p-4",
+        `animate-stagger-${Math.min(idx + 1, 10)}`,
+        !cliente.planId && "text-muted-foreground/70"
+      )}
+      style={{ animation: "fade-in-up 0.4s var(--ease-spring) forwards" }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Link href={`${basePath}/${cliente.id}`} className="font-medium hover:underline">
+            {usuario.nombre}
+          </Link>
+          <p className="text-sm text-muted-foreground">{plan?.nombre ?? "Sin plan"}</p>
+        </div>
+        <BadgeEstado estado={cliente.estado} />
+      </div>
+
+      <div className="text-sm text-muted-foreground">
+        <p className="truncate">{usuario.email}</p>
+        <p>{usuario.telefono}</p>
+      </div>
+
+      {cliente.notasRutina && (
+        <p className="line-clamp-2 text-sm text-muted-foreground">{cliente.notasRutina}</p>
+      )}
+
+      {!soloLectura && (
+        <div className="flex gap-2 pt-1">
+          <Button variant="outline" size="sm" className="min-h-11 flex-1" onClick={onEditar}>
+            Editar
+          </Button>
+          {cliente.estado === "activo" ? (
+            <Button variant="destructive" size="sm" className="min-h-11 flex-1" disabled={pendiente} onClick={onBaja}>
+              Dar de baja
+            </Button>
+          ) : (
+            <Button variant="secondary" size="sm" className="min-h-11 flex-1" disabled={pendiente} onClick={onReactivar}>
+              Reactivar
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );

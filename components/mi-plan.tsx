@@ -6,6 +6,7 @@ import {
   creditosRestantes,
 } from "@/lib/selectors";
 import { BadgeEstado } from "./badge-estado";
+import { BotonPagarPlan } from "./boton-pagar-plan";
 import { CreditCardIcon, ClockIcon } from "lucide-react";
 import type { Cliente, Plan, Pago, BonoCliente } from "@/lib/types";
 
@@ -66,7 +67,7 @@ export function MiPlan({ cliente, planes, pagos, bonosCliente }: Props) {
         )}
 
         {pago && (
-          <div className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-3 py-2.5">
             <div className="flex items-center gap-2">
               <ClockIcon className="size-4 text-muted-foreground" />
               <div>
@@ -81,7 +82,13 @@ export function MiPlan({ cliente, planes, pagos, bonosCliente }: Props) {
                 )}
               </div>
             </div>
-            <BadgeEstado estado={pago.estado} />
+            {pago.estado === "al_dia" ? (
+              <BadgeEstado estado={pago.estado} />
+            ) : plan?.stripePriceId ? (
+              <BotonPagarPlan />
+            ) : (
+              <BadgeEstado estado={pago.estado} />
+            )}
           </div>
         )}
 

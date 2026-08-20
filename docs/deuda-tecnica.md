@@ -4,6 +4,30 @@ Puntos abiertos que salieron de las revisiones de código de la capa de datos
 (rama `worktree-reglas-negocio-v1`, fusionada el 2026-08-08). Ninguno bloquea lo
 que ya está construido; se anotan aquí para no redescubrirlos más adelante.
 
+## 2026-08-20 — proxy.ts redirigía las peticiones de Stripe a /login [RESUELTO]
+
+`proxy.ts` protegía **todas** las rutas (matcher `/((?!_next/static|...).*)`,
+sin excluir `/api`), así que una petición de Stripe al webhook (sin cookie de
+sesión) se topaba con el middleware, no encontraba usuario, y la
+redirigía (307) a `/login` antes de llegar al route handler. El webhook
+nunca se ejecutaba y ningún pago se marcaba como cobrado, sin ningún error
+visible salvo el log `[307]` en `stripe listen`. Arreglado excluyendo `api`
+del matcher — las rutas de API gestionan su propia autenticación (aquí, la
+firma de Stripe). Si se añaden más rutas bajo `/api/` en el futuro, revisar
+si necesitan su propia comprobación de auth, porque ya no pasan por
+`proxy.ts`.
+
+## 2026-08-20 — app.elefitness.es no serví­a nada [RESUELTO]
+
+El dominio se había añadido al proyecto de Vercel con `vercel domains add`
+pero nunca quedó asociado a un deployment (`DEPLOYMENT_NOT_FOUND`), y por
+separado el proyecto tenía activada la protección SSO de Vercel incluso para
+dominios propios. Arreglado con `vercel alias set <deployment> app.elefitness.es`
+más `vercel project protection disable elefitness --sso`. Nota para la
+próxima vez que se cree un proyecto de Vercel para este repo: comprobar
+ambas cosas (alias real a un deployment, SSO desactivada) antes de dar por
+bueno un dominio solo porque `vercel domains add` no dio error.
+
 ## Pendientes de decisión con Elena
 
 - **Bonos de recuperación que se reciclan.** Un bono de recuperación caduca en 14
@@ -23,29 +47,34 @@ que ya está construido; se anotan aquí para no redescubrirlos más adelante.
 
 ## Errores latentes (ninguno alcanzable desde la UI actual)
 
-- **`marcar_asistencia` no tiene vuelta atrás ni comprobación de fecha.** Si Iván
-  marca por error una sesión futura, la reserva queda atrapada: las guardas de
-  cancelación rechazan cancelar una reserva con la asistencia ya registrada, y
-  esa guarda aplica también a Elena. La única salida hoy es tocar la base de
-  datos a mano. Es el candidato más claro al próximo arreglo.
+- ~~**`marcar_asistencia` no tiene vuelta atrás ni comprobación de fecha.**~~
+  **RESUELTO.** La migración 0012 la hizo reversible (toggle libre entre
+  asistió/no asistió/pendiente, ajustando `deuda_creditos` por el delta real
+  en vez de sumar sin más) y la 0020 quitó la guarda de fecha a petición de
+  Elena (2026-08-17): ahora se puede marcar en cualquier momento, incluso
+  antes de que empiece la clase.
 
-- **Un crédito perdido no tiene remedio dentro de la app.** Desde la migración
-  0010 `creditos_usados` solo sube. Si algún día Elena cancela una sesión entera,
-  las clientas de bono pierden el crédito y el único instrumento de compensación
-  es `crear_bono`, que todavía no tiene pantalla.
+- **Un crédito perdido tiene remedio manual, pero no automático.** Desde la
+  migración 0010 `creditos_usados` solo sube por sí solo. Si Elena cancela
+  una sesión entera, las clientas de bono pierden el crédito. Ya existe
+  pantalla para compensarlo a mano (`devolverCreditoSesion` /
+  `anadirSesionExtraBono` en la ficha de clienta, sección "Sesiones de bono
+  consumidas"), pero sigue siendo un gesto manual por clienta, uno a uno —
+  no hay un "deshacer en bloque" si cancela una clase con varias apuntadas.
 
 - **Superar el tope mensual es silencioso y ahora cuesta dinero.** Una clienta que
   cancela con +24h estando por encima del tope pierde el crédito y no recibe ni
   compensación ni aviso: la RPC no lo señala y `traducirError` no tiene caso para
   ello.
 
-- ~~**Posible desajuste de hidratación en `horario-cliente.tsx`.**~~ Resuelto:
-  `hoy` llega como prop calculada en el servidor con `hoyEnEspana()` (no se
-  recalcula en el cliente) y la lista ya se recorta a la ventana de 3 semanas.
-  El 2026-08-11 se cerró también el hueco equivalente en el otro extremo: una
-  clase de hoy ya empezada seguía ofreciendo "Reservar" hasta medianoche
-  porque el filtro comparaba solo por fecha, no por instante; ahora usa
-  `instanteEnEspana` para descartarla en cuanto empieza, igual que hace la RPC.
+- **Mismo patrón de fecha estática en tiempo de render, ahora en
+  `reserva-cliente.tsx`.** El fichero original (`horario-cliente.tsx`) se
+  eliminó en el rediseño visual del 14-08 y su sucesor repite `const ahora =
+  new Date()` dentro de un componente cliente que Next renderiza también en
+  servidor (línea 58). El riesgo práctico es bajo (ventana de menos de un
+  segundo, no las ~2h del patrón original), pero conviene resolverlo con el
+  mismo criterio que ya se aplicó al calendario: pasar `ahora`/`hoy` como
+  prop calculada en servidor en vez de recalcularla en el cliente.
 
 ## 2026-08-11 — Riesgo de truncado silencioso en obtenerSesiones/obtenerReservas [RESUELTO 2026-08-17]
 
@@ -96,12 +125,17 @@ programa el cambio de verdad.
 
 ## Limpieza y robustez
 
-- `ajustarAforoSesion` y `crearBono` existen como server actions pero no las llama
-  nadie: el plan de UI debe conectarlas.
+- `ajustarAforoSesion` existe como server action pero no la llama nadie: el
+  plan de UI debe conectarla. (`crearBono` ya está conectada, en
+  `AsignarBonoDialogo`.)
 - La rama `dias_semana_habituales < 3` (tope de 1 recuperación al mes) no está
   cubierta por tests: Laura es la única clienta de bono en los datos semilla.
-- `copiar_semana` ignora `clases.recurrente` — nunca se decidió para qué sirve ese
-  campo.
+  Tampoco hay tests de integración para `mover_horario_cliente` (migración
+  0022, cambio de horario fijo sin penalizar).
+- ~~`copiar_semana` ignora `clases.recurrente`~~ **Ya no aplica**: quedó
+  decidido y en uso — `copiar_semana` solo copia sesiones de clases con
+  `recurrente = true`, y desde la migración 0022 también reserva sola a las
+  mensuales con `clase_habitual_id` en esas clases.
 - `cancelar_reserva` lee la reserva sin `for update`. Dos cancelaciones
   simultáneas de la misma reserva podrían pasar ambas la comprobación y ejecutar
   la promoción de lista de espera dos veces. Es un patrón heredado, pero ahora el
@@ -121,13 +155,13 @@ programa el cambio de verdad.
 
 ## Salido de la revisión final del panel de mandos (2026-08-11)
 
-- **`proximoCobro` se calcula desde hoy, no desde el cobro anterior.**
-  `components/tabla-cobros.tsx` suma un mes a la fecha en que Elena pulsa el
-  botón, no a la fecha del `proximo_cobro` que ya tenía la clienta. Si Elena
-  registra un pago con unos días de retraso, la fecha de facturación se desplaza
-  hacia adelante de forma permanente, y vuelve a desplazarse cada vez que se
-  retrasa. Es previo a esta rama, pero conviene cerrarlo antes de cablear Stripe,
-  que heredará esa fecha.
+- ~~**`proximoCobro` se calcula desde hoy, no desde el cobro anterior.**~~
+  **RESUELTO 2026-08-17.** `components/tabla-cobros.tsx` ahora suma el mes al
+  `proximo_cobro` que ya tenía la clienta (`sumarMesesMismoDia(pago.proximoCobro
+  ?? fechaHoy, 1)`), y solo se ancla a hoy si todavía no tenía ningún ciclo.
+  El webhook de Stripe (`app/api/webhooks/stripe/route.ts`) hereda la fecha
+  real de `current_period_end` de la suscripción, no este cálculo — no había
+  nada que arrastrar.
 
 - **Ninguna cobertura de la rama `dias_semana_habituales < 3` ni del bono de
   recuperación para clientas mensuales** más allá de lo ya anotado arriba: los

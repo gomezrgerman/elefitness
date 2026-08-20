@@ -12,16 +12,16 @@ const steps = [
   },
   {
     number: "02",
-    word: "ENTRENA TU PLAN",
+    word: "CREAMOS TU PLAN PERSONALIZADO",
     description:
       "Sesiones adaptadas a ti, en grupos reducidos, con seguimiento real en cada clase.",
     className: "bg-surface",
   },
   {
     number: "03",
-    word: "EVOLUCIONA CONTIGO",
+    word: "CAMBIA TU ESTILO DE VIDA",
     description:
-      "Revisamos tu progreso y ajustamos el plan para que mejores sin estancarte.",
+      "Revisamos tu progreso y ajustamos el plan para que sigas evolucionando y mejorando sin estancarte.",
     className: "bg-surface",
   },
 ];
@@ -46,8 +46,8 @@ export function Method() {
           className="mt-4 max-w-3xl"
         />
         <p className="mt-6 max-w-xl text-body-large text-muted">
-          Sin complicaciones: así de simple es empezar a entrenar con
-          Elefitness y que el hábito se quede.
+          Sin complicaciones. Así de simple es convertir el entrenamiento en
+          un hábito.
         </p>
       </div>
 

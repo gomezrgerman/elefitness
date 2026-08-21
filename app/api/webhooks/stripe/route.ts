@@ -3,6 +3,8 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyEnEspana } from "@/lib/fechas";
+import { getResend, REMITENTE } from "@/lib/resend";
+import { emailCobroFallido } from "@/lib/emails";
 import type { TablesUpdate } from "@/lib/database.types";
 
 // Unica excepcion a "todo server actions" del proyecto (ver CLAUDE.md):
@@ -81,7 +83,27 @@ export async function POST(request: Request) {
           : undefined;
       if (!suscripcionId) break;
 
-      await supabase.from("pagos").update({ estado: "moroso" }).eq("stripe_subscription_id", suscripcionId);
+      const { data: pagosActualizados } = await supabase
+        .from("pagos")
+        .update({ estado: "moroso" })
+        .eq("stripe_subscription_id", suscripcionId)
+        .select("cliente_id");
+
+      const clienteId = pagosActualizados?.[0]?.cliente_id;
+      if (clienteId) {
+        try {
+          const { data: cliente } = await supabase.from("clientes").select("usuario_id").eq("id", clienteId).single();
+          const { data: usuario } = cliente
+            ? await supabase.from("users").select("nombre, email").eq("id", cliente.usuario_id).single()
+            : { data: null };
+          if (usuario) {
+            const { subject, html } = emailCobroFallido({ nombreCliente: usuario.nombre });
+            await getResend().emails.send({ from: REMITENTE, to: usuario.email, subject, html });
+          }
+        } catch (e) {
+          console.error("No se pudo enviar el email de cobro fallido:", e);
+        }
+      }
       break;
     }
 

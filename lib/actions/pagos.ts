@@ -14,7 +14,7 @@ const registrarPagoSchema = z.object({
   // un pago parcial puntual ("me ha pagado 80 de los 90") -- el numero que
   // entre aqui se queda como el importe esperado del ciclo siguiente tambien,
   // porque `pagos` es una fila que se reutiliza, no un historial por cobro.
-  importe: z.coerce.number().positive("El importe debe ser mayor que 0").optional(),
+  importe: z.coerce.number().min(0, "El importe no puede ser negativo").optional(),
 });
 
 export async function registrarPago(datos: unknown): Promise<{ error?: string }> {

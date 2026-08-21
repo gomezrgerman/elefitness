@@ -11,7 +11,7 @@ import { hoyEnEspana } from "@/lib/fechas";
 const actualizarClienteSchema = z
   .object({
     planId: z.string().nullable(),
-    importe: z.coerce.number().positive("El importe debe ser mayor que 0").optional(),
+    importe: z.coerce.number().min(0, "El importe no puede ser negativo").optional(),
     metodo: z.enum(["stripe", "efectivo", "transferencia"]).optional(),
     notasRutina: z.string().max(2000),
     diasSemanaHabituales: z.coerce
@@ -24,7 +24,7 @@ const actualizarClienteSchema = z
   .superRefine((datos, ctx) => {
     if (!datos.planId) return;
     if (datos.importe === undefined) {
-      ctx.addIssue({ path: ["importe"], code: z.ZodIssueCode.custom, message: "El importe debe ser mayor que 0" });
+      ctx.addIssue({ path: ["importe"], code: z.ZodIssueCode.custom, message: "El importe es obligatorio" });
     }
     if (datos.metodo === undefined) {
       ctx.addIssue({ path: ["metodo"], code: z.ZodIssueCode.custom, message: "Selecciona un metodo de pago" });

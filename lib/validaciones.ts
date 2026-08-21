@@ -13,10 +13,10 @@ export const clienteFormSchema = z
     // ese caso no hay pago que registrar, asi que importe/metodo no aplican.
     planId: z.string().nullable(),
     // Independiente del precio de catalogo del plan: cubre precios legacy no
-    // migrados y "Cuota personalizada" (clientas en efectivo con un precio
-    // propio negociado a mano). Tambien sirve para corregir un pago parcial
-    // puntual sin tener que cambiar de plan.
-    importe: z.coerce.number().positive("El importe debe ser mayor que 0").optional(),
+    // migrados, "Cuota personalizada" (clientas en efectivo con un precio
+    // propio negociado a mano) y "Cuota familiar" (0, entrena sin pagar).
+    // Tambien sirve para corregir un pago parcial puntual sin cambiar de plan.
+    importe: z.coerce.number().min(0, "El importe no puede ser negativo").optional(),
     metodo: z.enum(["stripe", "efectivo", "transferencia"]).optional(),
     notasRutina: z.string().max(2000).optional().default(""),
     diasSemanaHabituales: z.coerce
@@ -31,7 +31,7 @@ export const clienteFormSchema = z
   .superRefine((datos, ctx) => {
     if (!datos.planId) return;
     if (datos.importe === undefined) {
-      ctx.addIssue({ path: ["importe"], code: z.ZodIssueCode.custom, message: "El importe debe ser mayor que 0" });
+      ctx.addIssue({ path: ["importe"], code: z.ZodIssueCode.custom, message: "El importe es obligatorio" });
     }
     if (datos.metodo === undefined) {
       ctx.addIssue({ path: ["metodo"], code: z.ZodIssueCode.custom, message: "Selecciona un metodo de pago" });

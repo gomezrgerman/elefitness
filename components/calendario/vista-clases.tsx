@@ -5,7 +5,7 @@ import { CalendarioClases } from "./calendario-clases";
 import { RejillaHuecos } from "./rejilla-huecos";
 import { RejillaHorarioFijo } from "./rejilla-horario-fijo";
 import { cn } from "@/lib/utils";
-import type { Clase, Sesion, Reserva, Cliente, Usuario, Plan, FranjaHoraria } from "@/lib/types";
+import type { Clase, Sesion, Reserva, Cliente, Usuario, Plan, FranjaHoraria, HorarioFijo } from "@/lib/types";
 
 interface Props {
   hoy: string;
@@ -17,6 +17,7 @@ interface Props {
   usuarios: Usuario[];
   planes: Plan[];
   franjas: FranjaHoraria[];
+  horariosFijos: HorarioFijo[];
   esAdmin: boolean;
 }
 
@@ -24,7 +25,9 @@ interface Props {
 // reservas reales (bajas, vacaciones...) y "horario fijo" es la plantilla
 // estructural de grupos que sustituye a su Excel -- no dependen la una de
 // la otra, por eso son pestañas y no capas del mismo calendario.
-export function VistaClases({ hoy, ahora, clases, sesiones, reservas, clientes, usuarios, planes, franjas, esAdmin }: Props) {
+export function VistaClases({
+  hoy, ahora, clases, sesiones, reservas, clientes, usuarios, planes, franjas, horariosFijos, esAdmin,
+}: Props) {
   const [vista, setVista] = useState<"semana" | "fijo">("semana");
 
   return (
@@ -80,6 +83,7 @@ export function VistaClases({ hoy, ahora, clases, sesiones, reservas, clientes, 
           franjas={franjas}
           clases={clases}
           clientes={clientes}
+          horariosFijos={horariosFijos}
           usuarios={usuarios}
           planes={planes}
           puedeEditar={esAdmin}

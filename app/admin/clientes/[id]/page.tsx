@@ -11,22 +11,25 @@ import {
   obtenerClases,
   obtenerReservasDeCliente,
   obtenerReservasConBonoDeCliente,
+  obtenerHorariosFijos,
 } from "@/lib/supabase/queries";
 import { clientePorId, usuarioPorId } from "@/lib/selectors";
 
 export default async function AdminFichaClientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [clientes, usuarios, planes, pagos, bonos, sesiones, clases, reservas, reservasConBono] = await Promise.all([
-    obtenerClientes(),
-    obtenerUsuarios(),
-    obtenerPlanes(),
-    obtenerPagos(),
-    obtenerBonosCliente(),
-    obtenerSesiones(),
-    obtenerClases(),
-    obtenerReservasDeCliente(id),
-    obtenerReservasConBonoDeCliente(id),
-  ]);
+  const [clientes, usuarios, planes, pagos, bonos, sesiones, clases, reservas, reservasConBono, horariosFijos] =
+    await Promise.all([
+      obtenerClientes(),
+      obtenerUsuarios(),
+      obtenerPlanes(),
+      obtenerPagos(),
+      obtenerBonosCliente(),
+      obtenerSesiones(),
+      obtenerClases(),
+      obtenerReservasDeCliente(id),
+      obtenerReservasConBonoDeCliente(id),
+      obtenerHorariosFijos(),
+    ]);
 
   const cliente = clientePorId(clientes, id);
   if (!cliente) notFound();
@@ -48,6 +51,7 @@ export default async function AdminFichaClientePage({ params }: { params: Promis
         reservas={reservas}
         sesiones={sesiones}
         clases={clases}
+        horariosFijos={horariosFijos.filter((h) => h.clienteId === cliente.id)}
         esAdmin
         reservasConBono={reservasConBono}
       />

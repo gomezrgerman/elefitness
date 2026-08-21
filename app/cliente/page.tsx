@@ -15,6 +15,7 @@ import {
   obtenerPagos,
   obtenerBonosCliente,
   obtenerOcupacionSesiones,
+  obtenerHorariosFijos,
 } from "@/lib/supabase/queries";
 import { usuarioPorId, reservaActivaDeClienteEnSesion } from "@/lib/selectors";
 import { sumarDias, hoyEnEspana, instanteEnEspana } from "@/lib/fechas";
@@ -34,17 +35,19 @@ export default async function ClientePage() {
   // Acotado a la ventana de reserva de 3 semanas: es todo lo que esta pantalla
   // muestra, y evita traer la tabla entera de sesiones/reservas del centro
   // (ver docs/deuda-tecnica.md).
-  const [cliente, usuarios, clases, sesiones, reservas, planes, pagos, bonosCliente, ocupacion] = await Promise.all([
-    obtenerClienteDeUsuario(user.id),
-    obtenerUsuarios(),
-    obtenerClases(),
-    obtenerSesiones({ desde: hoy, hasta: limite }),
-    obtenerReservas({ desde: hoy, hasta: limite }),
-    obtenerPlanes(),
-    obtenerPagos(),
-    obtenerBonosCliente(),
-    obtenerOcupacionSesiones(),
-  ]);
+  const [cliente, usuarios, clases, sesiones, reservas, planes, pagos, bonosCliente, ocupacion, horariosFijos] =
+    await Promise.all([
+      obtenerClienteDeUsuario(user.id),
+      obtenerUsuarios(),
+      obtenerClases(),
+      obtenerSesiones({ desde: hoy, hasta: limite }),
+      obtenerReservas({ desde: hoy, hasta: limite }),
+      obtenerPlanes(),
+      obtenerPagos(),
+      obtenerBonosCliente(),
+      obtenerOcupacionSesiones(),
+      obtenerHorariosFijos(),
+    ]);
 
   if (!cliente) redirect("/login");
   const usuario = usuarioPorId(usuarios, user.id);
@@ -139,7 +142,14 @@ export default async function ClientePage() {
         </Card>
       )}
 
-      <MiPlan cliente={cliente} planes={planes} pagos={pagos} bonosCliente={bonosCliente} clases={clases} />
+      <MiPlan
+        cliente={cliente}
+        planes={planes}
+        pagos={pagos}
+        bonosCliente={bonosCliente}
+        clases={clases}
+        horariosFijos={horariosFijos.filter((h) => h.clienteId === cliente.id)}
+      />
       <div>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
           Reserva tu clase

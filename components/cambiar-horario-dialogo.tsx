@@ -14,7 +14,10 @@ const SIN_ORIGEN = "sin-origen";
 
 interface Props {
   clienteId: string;
-  claseHabitualId: string | null;
+  // Ids de las clases en las que ya tiene horario fijo hoy -- el desplegable
+  // de "horario actual" solo tiene sentido mostrar estas, no las 50+ clases
+  // del centro (una clienta puede tener varias, ver migracion 0023).
+  horariosFijosIds: string[];
   planTipo: TipoPlan | null;
   clases: Clase[];
   usuarios: Usuario[];
@@ -32,8 +35,8 @@ function etiquetaClase(clase: Clase | undefined, usuarios: Usuario[]): string | 
   return `${dia} ${clase.horaInicio}–${clase.horaFin}${entrenador ? ` · ${entrenador.nombre}` : ""}`;
 }
 
-export function CambiarHorarioDialogo({ clienteId, claseHabitualId, planTipo, clases, usuarios, hoy, onCerrar }: Props) {
-  const [claseOrigenId, setClaseOrigenId] = useState(claseHabitualId ?? SIN_ORIGEN);
+export function CambiarHorarioDialogo({ clienteId, horariosFijosIds, planTipo, clases, usuarios, hoy, onCerrar }: Props) {
+  const [claseOrigenId, setClaseOrigenId] = useState(SIN_ORIGEN);
   const [claseDestinoId, setClaseDestinoId] = useState("");
   const [desde, setDesde] = useState(hoy);
   const [marcarFijo, setMarcarFijo] = useState(planTipo === "mensual");
@@ -44,6 +47,9 @@ export function CambiarHorarioDialogo({ clienteId, claseHabitualId, planTipo, cl
   const clasesRecurrentes = clases
     .filter((c) => c.recurrente)
     .sort((a, b) => ORDEN_DIAS.indexOf(a.dia) - ORDEN_DIAS.indexOf(b.dia) || a.horaInicio.localeCompare(b.horaInicio));
+  // Solo tiene sentido "mover desde" uno de los horarios fijos que ya tiene
+  // -- listar las 50+ clases del centro aqui confundiria mas que ayudaria.
+  const clasesOrigenPosibles = clasesRecurrentes.filter((c) => horariosFijosIds.includes(c.id));
 
   function confirmar() {
     setError(null);
@@ -91,14 +97,14 @@ export function CambiarHorarioDialogo({ clienteId, claseHabitualId, planTipo, cl
                   {(valor: string) =>
                     valor === SIN_ORIGEN
                       ? "Ninguno (solo añadir al nuevo)"
-                      : etiquetaClase(clasesRecurrentes.find((c) => c.id === valor), usuarios) ??
+                      : etiquetaClase(clasesOrigenPosibles.find((c) => c.id === valor), usuarios) ??
                         "Ninguno (solo añadir al nuevo)"
                   }
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={SIN_ORIGEN}>Ninguno (solo añadir al nuevo)</SelectItem>
-                {clasesRecurrentes.map((clase) => (
+                {clasesOrigenPosibles.map((clase) => (
                   <SelectItem key={clase.id} value={clase.id}>
                     {etiquetaClase(clase, usuarios)}
                   </SelectItem>

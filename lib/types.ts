@@ -50,10 +50,16 @@ export interface Cliente {
   deudaCreditos: number;
   // null = sin restriccion, la clienta ve las clases de cualquier entrenador.
   entrenadorRestringidoId: string | null;
-  // Clase de la rejilla fija en la que se reserva sola cada semana (solo
-  // mensualidades). null = sin horario fijo, reserva semana a semana.
-  claseHabitualId: string | null;
   createdAt: string;
+}
+
+// Union clienta <-> clase: una clienta puede tener varias franjas fijas a la
+// vez (ej. lunes/miercoles/viernes 6:30). Solo mensualidades, ver migracion
+// 0022/0023. Alimenta copiar_semana para que se reserve sola cada semana.
+export interface HorarioFijo {
+  id: string;
+  clienteId: string;
+  claseId: string;
 }
 
 export interface Clase {

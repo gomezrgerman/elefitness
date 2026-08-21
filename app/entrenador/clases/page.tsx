@@ -8,6 +8,7 @@ import {
   obtenerUsuarios,
   obtenerPlanes,
   obtenerFranjas,
+  obtenerHorariosFijos,
 } from "@/lib/supabase/queries";
 import { hoyEnEspana, sumarMesesMismoDia } from "@/lib/fechas";
 
@@ -19,7 +20,7 @@ export default async function EntrenadorClasesPage() {
   // de este rango el calendario y la rejilla dejan de mostrar contenido.
   const rango = { desde: sumarMesesMismoDia(hoy, -3), hasta: sumarMesesMismoDia(hoy, 6) };
 
-  const [clases, sesiones, reservas, clientes, usuarios, planes, franjas] = await Promise.all([
+  const [clases, sesiones, reservas, clientes, usuarios, planes, franjas, horariosFijos] = await Promise.all([
     obtenerClases(),
     obtenerSesiones(rango),
     obtenerReservas(rango),
@@ -27,6 +28,7 @@ export default async function EntrenadorClasesPage() {
     obtenerUsuarios(),
     obtenerPlanes(),
     obtenerFranjas(),
+    obtenerHorariosFijos(),
   ]);
   const sesionesFuturas = sesiones.filter((s) => s.fecha >= hoy).length;
 
@@ -50,6 +52,7 @@ export default async function EntrenadorClasesPage() {
           usuarios={usuarios}
           planes={planes}
           franjas={franjas}
+          horariosFijos={horariosFijos}
           esAdmin={false}
         />
       )}

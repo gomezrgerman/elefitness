@@ -129,7 +129,6 @@ export type Database = {
       }
       clientes: {
         Row: {
-          clase_habitual_id: string | null
           created_at: string
           deuda_creditos: number
           dias_semana_habituales: number
@@ -141,7 +140,6 @@ export type Database = {
           usuario_id: string
         }
         Insert: {
-          clase_habitual_id?: string | null
           created_at?: string
           deuda_creditos?: number
           dias_semana_habituales?: number
@@ -153,7 +151,6 @@ export type Database = {
           usuario_id: string
         }
         Update: {
-          clase_habitual_id?: string | null
           created_at?: string
           deuda_creditos?: number
           dias_semana_habituales?: number
@@ -165,13 +162,6 @@ export type Database = {
           usuario_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "clientes_clase_habitual_id_fkey"
-            columns: ["clase_habitual_id"]
-            isOneToOne: false
-            referencedRelation: "clases"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "clientes_entrenador_restringido_id_fkey"
             columns: ["entrenador_restringido_id"]
@@ -191,6 +181,42 @@ export type Database = {
             columns: ["usuario_id"]
             isOneToOne: true
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clientes_horario_fijo: {
+        Row: {
+          id: string
+          cliente_id: string
+          clase_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          cliente_id: string
+          clase_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          cliente_id?: string
+          clase_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clientes_horario_fijo_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clientes_horario_fijo_clase_id_fkey"
+            columns: ["clase_id"]
+            isOneToOne: false
+            referencedRelation: "clases"
             referencedColumns: ["id"]
           },
         ]

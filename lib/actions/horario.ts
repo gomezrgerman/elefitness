@@ -17,8 +17,9 @@ const moverHorarioSchema = z.object({
 // Movimiento de horario hecho por Elena: mueve las reservas futuras ya
 // existentes del horario viejo al nuevo sin penalizar (se devuelve credito
 // de bono si aplica, nunca se emite bono de recuperacion) y, si se marca
-// como fijo, deja a la clienta reservandose sola cada semana a partir de
-// ahora (solo mensualidades, ver migracion 0022).
+// como fijo, AÑADE ese horario al conjunto de horarios fijos de la clienta
+// (puede tener varios a la vez, ver migracion 0023) -- reservandose sola
+// cada semana a partir de ahora (solo mensualidades).
 export async function moverHorarioCliente(datos: unknown): Promise<{ error?: string; sesionesMovidas?: number }> {
   const resultado = moverHorarioSchema.safeParse(datos);
   if (!resultado.success) {
@@ -38,30 +39,37 @@ export async function moverHorarioCliente(datos: unknown): Promise<{ error?: str
 
   revalidatePath("/admin/clientes");
   revalidatePath("/admin/clases");
+  revalidatePath("/cliente");
   return { sesionesMovidas: data ?? 0 };
 }
 
-const idSchema = z.string().uuid("Identificador invalido");
+const quitarHorarioFijoSchema = z.object({
+  clienteId: z.string().uuid("Cliente invalido"),
+  claseId: z.string().uuid("Clase invalida"),
+});
 
-// Quitar del horario fijo (vista "Horario fijo" por franja): solo desasigna
-// clase_habitual_id, no toca ninguna reserva ya existente. Si Elena tambien
-// quiere cancelar sus sesiones futuras de esa clase, lo hace aparte desde la
-// vista de dia -- no se asume automaticamente, para no cancelar de golpe
-// algo que la clienta seguia esperando encontrarse esta semana.
-export async function quitarHorarioFijo(clienteId: string): Promise<{ error?: string }> {
-  const resultado = idSchema.safeParse(clienteId);
+// Quitar UNA franja del conjunto de horarios fijos (puede tener varias):
+// solo borra esa fila de clientes_horario_fijo, no toca ninguna reserva ya
+// existente. Si Elena tambien quiere cancelar sus sesiones futuras de esa
+// clase, lo hace aparte desde la vista de dia -- no se asume
+// automaticamente, para no cancelar de golpe algo que la clienta seguia
+// esperando encontrarse esta semana.
+export async function quitarHorarioFijo(clienteId: string, claseId: string): Promise<{ error?: string }> {
+  const resultado = quitarHorarioFijoSchema.safeParse({ clienteId, claseId });
   if (!resultado.success) return { error: resultado.error.issues[0]?.message ?? "Datos invalidos" };
 
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("clientes")
-    .update({ clase_habitual_id: null })
-    .eq("id", resultado.data)
+    .from("clientes_horario_fijo")
+    .delete()
+    .eq("cliente_id", resultado.data.clienteId)
+    .eq("clase_id", resultado.data.claseId)
     .select();
   if (error) return { error: error.message };
   if (!data || data.length === 0) return { error: "No autorizado" };
 
   revalidatePath("/admin/clientes");
   revalidatePath("/admin/clases");
+  revalidatePath("/cliente");
   return {};
 }

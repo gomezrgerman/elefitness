@@ -4,12 +4,13 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { usuarioPorId } from "@/lib/selectors";
 import { HorarioFijoDialogo } from "./horario-fijo-dialogo";
-import type { Clase, Cliente, Usuario, Plan, FranjaHoraria, DiaSemana } from "@/lib/types";
+import type { Clase, Cliente, Usuario, Plan, FranjaHoraria, DiaSemana, HorarioFijo } from "@/lib/types";
 
 interface Props {
   franjas: FranjaHoraria[];
   clases: Clase[];
   clientes: Cliente[];
+  horariosFijos: HorarioFijo[];
   usuarios: Usuario[];
   planes: Plan[];
   puedeEditar: boolean;
@@ -23,14 +24,16 @@ const ETIQUETA_DIA: Record<DiaSemana, string> = {
 
 const ESTILO_HUECO = "bg-muted/40 text-muted-foreground/40";
 
-// Esta clase (mensuales asignadas via clase_habitual_id) esta activa hoy en
-// esta franja, independientemente de lo que haya reservado esta semana en
-// concreto -- por eso no depende de sesiones ni de fecha.
-function contarFijos(clases: Clase[], clientes: Cliente[], claseId: string): number {
-  return clientes.filter((c) => c.estado === "activo" && c.claseHabitualId === claseId).length;
+// Cuenta las clientas activas con horario fijo en esta franja, independiente
+// de lo que hayan reservado esta semana en concreto -- por eso no depende de
+// sesiones ni de fecha. Una clienta puede tener varias franjas fijas a la
+// vez (ver migracion 0023), asi que se cuenta por la tabla de union.
+function contarFijos(clientes: Cliente[], horariosFijos: HorarioFijo[], claseId: string): number {
+  const idsActivos = new Set(clientes.filter((c) => c.estado === "activo").map((c) => c.id));
+  return horariosFijos.filter((h) => h.claseId === claseId && idsActivos.has(h.clienteId)).length;
 }
 
-export function RejillaHorarioFijo({ franjas, clases, clientes, usuarios, planes, puedeEditar }: Props) {
+export function RejillaHorarioFijo({ franjas, clases, clientes, horariosFijos, usuarios, planes, puedeEditar }: Props) {
   const [claseSeleccionada, setClaseSeleccionada] = useState<Clase | null>(null);
 
   return (
@@ -67,7 +70,7 @@ export function RejillaHorarioFijo({ franjas, clases, clientes, usuarios, planes
                 }
 
                 const entrenador = usuarioPorId(usuarios, claseFija.entrenadorId);
-                const count = contarFijos(clases, clientes, claseFija.id);
+                const count = contarFijos(clientes, horariosFijos, claseFija.id);
                 const lleno = count >= claseFija.aforoMax;
 
                 return (
@@ -110,6 +113,7 @@ export function RejillaHorarioFijo({ franjas, clases, clientes, usuarios, planes
           clase={claseSeleccionada}
           entrenador={usuarioPorId(usuarios, claseSeleccionada.entrenadorId)}
           clientes={clientes}
+          horariosFijos={horariosFijos}
           usuarios={usuarios}
           planes={planes}
           puedeEditar={puedeEditar}

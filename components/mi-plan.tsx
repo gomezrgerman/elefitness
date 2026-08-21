@@ -8,7 +8,8 @@ import {
 import { BadgeEstado } from "./badge-estado";
 import { BotonPagarPlan } from "./boton-pagar-plan";
 import { CreditCardIcon, ClockIcon, CalendarClockIcon } from "lucide-react";
-import type { Cliente, Plan, Pago, BonoCliente, Clase } from "@/lib/types";
+import { ORDEN_DIAS } from "@/lib/selectors";
+import type { Cliente, Plan, Pago, BonoCliente, Clase, HorarioFijo } from "@/lib/types";
 
 interface Props {
   cliente: Cliente;
@@ -16,20 +17,25 @@ interface Props {
   pagos: Pago[];
   bonosCliente: BonoCliente[];
   clases: Clase[];
+  // Ya filtrados a este cliente por quien llama.
+  horariosFijos: HorarioFijo[];
 }
 
 function etiquetaDia(dia: string): string {
   return dia.charAt(0).toUpperCase() + dia.slice(1);
 }
 
-export function MiPlan({ cliente, planes, pagos, bonosCliente, clases }: Props) {
+export function MiPlan({ cliente, planes, pagos, bonosCliente, clases, horariosFijos }: Props) {
   const plan = planPorId(planes, cliente.planId);
   const pago = pagoDeCliente(pagos, cliente.id);
   const bono = bonoDeCliente(bonosCliente, cliente.id);
   const restantes = bono ? creditosRestantes(bono) : 0;
   const total = bono?.creditosTotales ?? 0;
   const porcentaje = total > 0 ? (restantes / total) * 100 : 0;
-  const claseHabitual = cliente.claseHabitualId ? clases.find((c) => c.id === cliente.claseHabitualId) : undefined;
+  const clasesHabituales = horariosFijos
+    .map((h) => clases.find((c) => c.id === h.claseId))
+    .filter((c): c is Clase => Boolean(c))
+    .sort((a, b) => ORDEN_DIAS.indexOf(a.dia) - ORDEN_DIAS.indexOf(b.dia) || a.horaInicio.localeCompare(b.horaInicio));
 
   return (
     <Card>
@@ -50,13 +56,15 @@ export function MiPlan({ cliente, planes, pagos, bonosCliente, clases }: Props) 
           </div>
         </div>
 
-        {claseHabitual && (
-          <div className="flex items-center gap-2 rounded-lg bg-muted/30 px-3 py-2.5">
-            <CalendarClockIcon className="size-4 shrink-0 text-muted-foreground" />
+        {clasesHabituales.length > 0 && (
+          <div className="flex items-start gap-2 rounded-lg bg-muted/30 px-3 py-2.5">
+            <CalendarClockIcon className="size-4 shrink-0 text-muted-foreground mt-0.5" />
             <div>
               <p className="text-xs text-muted-foreground">Tu horario fijo</p>
               <p className="text-sm font-medium">
-                {etiquetaDia(claseHabitual.dia)} {claseHabitual.horaInicio}–{claseHabitual.horaFin}
+                {clasesHabituales
+                  .map((c) => `${etiquetaDia(c.dia)} ${c.horaInicio}`)
+                  .join(" · ")}
               </p>
               <p className="text-xs text-muted-foreground">
                 Si esta semana no puedes venir, cancela igualmente: tu horario fijo no cambia.

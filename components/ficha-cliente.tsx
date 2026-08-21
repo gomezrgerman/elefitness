@@ -3,11 +3,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { BadgeEstado } from "./badge-estado";
 import { BotonAsignarBono } from "./boton-asignar-bono";
 import { BotonCambiarHorario } from "./boton-cambiar-horario";
+import { HorariosFijosClienta } from "./horarios-fijos-clienta";
 import { SesionesBonoConsumidas } from "./sesiones-bono-consumidas";
 import { CalendarioAsistencia } from "./calendario-asistencia";
 import { planPorId, usuarioPorId, creditosRestantes } from "@/lib/selectors";
 import { hoyEnEspana } from "@/lib/fechas";
-import type { Cliente, Usuario, Plan, Pago, BonoCliente, Sesion, Clase, Reserva } from "@/lib/types";
+import type { Cliente, Usuario, Plan, Pago, BonoCliente, Sesion, Clase, Reserva, HorarioFijo } from "@/lib/types";
 
 interface Props {
   cliente: Cliente;
@@ -19,16 +20,17 @@ interface Props {
   reservas: Reserva[];
   sesiones: Sesion[];
   clases: Clase[];
+  // Ya filtrados a este cliente por quien llama (mismo patron que reservasConBono).
+  horariosFijos?: HorarioFijo[];
   esAdmin?: boolean;
   reservasConBono?: Reserva[];
 }
 
 export function FichaCliente({
-  cliente, usuario, usuarios, planes, pagos, bonos, reservas, sesiones, clases, esAdmin = false, reservasConBono = [],
+  cliente, usuario, usuarios, planes, pagos, bonos, reservas, sesiones, clases, horariosFijos = [], esAdmin = false, reservasConBono = [],
 }: Props) {
   const plan = planPorId(planes, cliente.planId);
   const entrenador = cliente.entrenadorRestringidoId ? usuarioPorId(usuarios, cliente.entrenadorRestringidoId) : undefined;
-  const claseHabitual = cliente.claseHabitualId ? clases.find((c) => c.id === cliente.claseHabitualId) : undefined;
   const hoy = hoyEnEspana();
   const bonosActivos = bonos.filter((b) => b.activo && (!b.fechaCaducidad || b.fechaCaducidad >= hoy));
   // Un plan de bono retirado (precio antiguo) no se ofrece al asignar uno
@@ -48,7 +50,7 @@ export function FichaCliente({
           {esAdmin && (
             <BotonCambiarHorario
               clienteId={cliente.id}
-              claseHabitualId={cliente.claseHabitualId}
+              horariosFijosIds={horariosFijos.map((h) => h.claseId)}
               planTipo={plan?.tipo ?? null}
               clases={clases}
               usuarios={usuarios}
@@ -73,12 +75,14 @@ export function FichaCliente({
             <span className="text-muted-foreground">Entrena con: </span>
             {entrenador?.nombre ?? "Cualquiera"}
           </p>
-          <p>
-            <span className="text-muted-foreground">Horario fijo: </span>
-            {claseHabitual
-              ? `${claseHabitual.dia.charAt(0).toUpperCase() + claseHabitual.dia.slice(1)} ${claseHabitual.horaInicio}–${claseHabitual.horaFin}`
-              : "Sin horario fijo (reserva semana a semana)"}
-          </p>
+          <HorariosFijosClienta
+            clienteId={cliente.id}
+            horariosFijos={horariosFijos}
+            planTipo={plan?.tipo ?? null}
+            clases={clases}
+            hoy={hoy}
+            puedeEditar={esAdmin}
+          />
           {cliente.deudaCreditos > 0 && (
             <p className="text-amber-700">
               Tiene {cliente.deudaCreditos} sesion(es) de deuda, se descontaran de su proximo bono.

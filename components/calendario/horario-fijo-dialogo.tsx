@@ -9,12 +9,13 @@ import { usuarioPorId, planPorId } from "@/lib/selectors";
 import { hoyEnEspana } from "@/lib/fechas";
 import { moverHorarioCliente, quitarHorarioFijo } from "@/lib/actions/horario";
 import { SearchIcon, XIcon } from "lucide-react";
-import type { Clase, Cliente, Usuario, Plan } from "@/lib/types";
+import type { Clase, Cliente, Usuario, Plan, HorarioFijo } from "@/lib/types";
 
 interface Props {
   clase: Clase;
   entrenador: Usuario | undefined;
   clientes: Cliente[];
+  horariosFijos: HorarioFijo[];
   usuarios: Usuario[];
   planes: Plan[];
   puedeEditar: boolean;
@@ -25,15 +26,20 @@ function etiquetaDia(dia: string): string {
   return dia.charAt(0).toUpperCase() + dia.slice(1);
 }
 
-export function HorarioFijoDialogo({ clase, entrenador, clientes, usuarios, planes, puedeEditar, onCerrar }: Props) {
+export function HorarioFijoDialogo({ clase, entrenador, clientes, horariosFijos, usuarios, planes, puedeEditar, onCerrar }: Props) {
   const [busqueda, setBusqueda] = useState("");
   const [pendiente, startTransition] = useTransition();
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const idsEnEstaFranja = useMemo(
+    () => new Set(horariosFijos.filter((h) => h.claseId === clase.id).map((h) => h.clienteId)),
+    [horariosFijos, clase.id]
+  );
+
   const fijos = useMemo(
-    () => clientes.filter((c) => c.estado === "activo" && c.claseHabitualId === clase.id),
-    [clientes, clase.id]
+    () => clientes.filter((c) => c.estado === "activo" && idsEnEstaFranja.has(c.id)),
+    [clientes, idsEnEstaFranja]
   );
 
   const resultadosBusqueda = useMemo(() => {
@@ -41,19 +47,19 @@ export function HorarioFijoDialogo({ clase, entrenador, clientes, usuarios, plan
     if (!q) return [];
     return clientes
       .filter((c) => {
-        if (c.estado !== "activo" || c.claseHabitualId === clase.id) return false;
+        if (c.estado !== "activo" || idsEnEstaFranja.has(c.id)) return false;
         const plan = planPorId(planes, c.planId);
         if (plan?.tipo !== "mensual") return false;
         const usuario = usuarioPorId(usuarios, c.usuarioId);
         return usuario?.nombre.toLowerCase().includes(q);
       })
       .slice(0, 8);
-  }, [busqueda, clientes, planes, usuarios, clase.id]);
+  }, [busqueda, clientes, planes, usuarios, idsEnEstaFranja]);
 
   function quitar(clienteId: string) {
     setProcesandoId(clienteId);
     startTransition(async () => {
-      const respuesta = await quitarHorarioFijo(clienteId);
+      const respuesta = await quitarHorarioFijo(clienteId, clase.id);
       setProcesandoId(null);
       if (respuesta.error) {
         toast(respuesta.error, "error");

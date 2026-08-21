@@ -1,12 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Cliente, Usuario, Plan, Clase, Sesion, Reserva, Pago, BonoCliente, MovimientoHistorial, FranjaHoraria } from "@/lib/types";
+import type {
+  Cliente, Usuario, Plan, Clase, Sesion, Reserva, Pago, BonoCliente, MovimientoHistorial, FranjaHoraria, HorarioFijo,
+} from "@/lib/types";
 
 export async function obtenerClientes(): Promise<Cliente[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("clientes")
     .select(
-      "id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, entrenador_restringido_id, clase_habitual_id, created_at"
+      "id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, entrenador_restringido_id, created_at"
     );
   if (error) throw error;
   return (data ?? []).map((c) => ({
@@ -18,7 +20,6 @@ export async function obtenerClientes(): Promise<Cliente[]> {
     diasSemanaHabituales: c.dias_semana_habituales,
     deudaCreditos: c.deuda_creditos,
     entrenadorRestringidoId: c.entrenador_restringido_id,
-    claseHabitualId: c.clase_habitual_id,
     createdAt: c.created_at,
   }));
 }
@@ -28,7 +29,7 @@ export async function obtenerClienteDeUsuario(usuarioId: string): Promise<Client
   const { data, error } = await supabase
     .from("clientes")
     .select(
-      "id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, entrenador_restringido_id, clase_habitual_id, created_at"
+      "id, usuario_id, estado, plan_id, notas_rutina, dias_semana_habituales, deuda_creditos, entrenador_restringido_id, created_at"
     )
     .eq("usuario_id", usuarioId)
     .maybeSingle();
@@ -43,9 +44,17 @@ export async function obtenerClienteDeUsuario(usuarioId: string): Promise<Client
     diasSemanaHabituales: data.dias_semana_habituales,
     deudaCreditos: data.deuda_creditos,
     entrenadorRestringidoId: data.entrenador_restringido_id,
-    claseHabitualId: data.clase_habitual_id,
     createdAt: data.created_at,
   };
+}
+
+// Tabla pequeña (pocas filas por clienta), se trae entera y se filtra en
+// cliente, igual que bonos_cliente o pagos.
+export async function obtenerHorariosFijos(): Promise<HorarioFijo[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("clientes_horario_fijo").select("id, cliente_id, clase_id");
+  if (error) throw error;
+  return (data ?? []).map((h) => ({ id: h.id, clienteId: h.cliente_id, claseId: h.clase_id }));
 }
 
 export async function obtenerUsuarios(): Promise<Usuario[]> {

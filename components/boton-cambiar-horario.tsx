@@ -7,14 +7,14 @@ import type { Clase, Usuario, TipoPlan } from "@/lib/types";
 
 interface Props {
   clienteId: string;
-  claseHabitualId: string | null;
+  horariosFijosIds: string[];
   planTipo: TipoPlan | null;
   clases: Clase[];
   usuarios: Usuario[];
   hoy: string;
 }
 
-export function BotonCambiarHorario({ clienteId, claseHabitualId, planTipo, clases, usuarios, hoy }: Props) {
+export function BotonCambiarHorario({ clienteId, horariosFijosIds, planTipo, clases, usuarios, hoy }: Props) {
   const [abierto, setAbierto] = useState(false);
 
   return (
@@ -25,7 +25,7 @@ export function BotonCambiarHorario({ clienteId, claseHabitualId, planTipo, clas
       {abierto && (
         <CambiarHorarioDialogo
           clienteId={clienteId}
-          claseHabitualId={claseHabitualId}
+          horariosFijosIds={horariosFijosIds}
           planTipo={planTipo}
           clases={clases}
           usuarios={usuarios}

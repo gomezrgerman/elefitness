@@ -40,3 +40,28 @@ export async function moverHorarioCliente(datos: unknown): Promise<{ error?: str
   revalidatePath("/admin/clases");
   return { sesionesMovidas: data ?? 0 };
 }
+
+const idSchema = z.string().uuid("Identificador invalido");
+
+// Quitar del horario fijo (vista "Horario fijo" por franja): solo desasigna
+// clase_habitual_id, no toca ninguna reserva ya existente. Si Elena tambien
+// quiere cancelar sus sesiones futuras de esa clase, lo hace aparte desde la
+// vista de dia -- no se asume automaticamente, para no cancelar de golpe
+// algo que la clienta seguia esperando encontrarse esta semana.
+export async function quitarHorarioFijo(clienteId: string): Promise<{ error?: string }> {
+  const resultado = idSchema.safeParse(clienteId);
+  if (!resultado.success) return { error: resultado.error.issues[0]?.message ?? "Datos invalidos" };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("clientes")
+    .update({ clase_habitual_id: null })
+    .eq("id", resultado.data)
+    .select();
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "No autorizado" };
+
+  revalidatePath("/admin/clientes");
+  revalidatePath("/admin/clases");
+  return {};
+}

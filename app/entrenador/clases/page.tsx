@@ -1,5 +1,4 @@
-import { CalendarioClases } from "@/components/calendario/calendario-clases";
-import { RejillaHuecos } from "@/components/calendario/rejilla-huecos";
+import { VistaClases } from "@/components/calendario/vista-clases";
 import { EstadoVacio } from "@/components/estado-vacio";
 import {
   obtenerClases,
@@ -41,7 +40,7 @@ export default async function EntrenadorClasesPage() {
       {clases.length === 0 ? (
         <EstadoVacio tipo="clases" />
       ) : (
-        <CalendarioClases
+        <VistaClases
           hoy={hoy}
           ahora={ahora}
           clases={clases}
@@ -50,18 +49,10 @@ export default async function EntrenadorClasesPage() {
           clientes={clientes}
           usuarios={usuarios}
           planes={planes}
-          puedeQuitar={false}
+          franjas={franjas}
+          esAdmin={false}
         />
       )}
-      <RejillaHuecos
-        hoy={hoy}
-        franjas={franjas}
-        clases={clases}
-        sesiones={sesiones}
-        reservas={reservas}
-        usuarios={usuarios}
-        puedeAbrir={false}
-      />
     </div>
   );
 }

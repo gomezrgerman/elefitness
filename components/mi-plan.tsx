@@ -7,23 +7,29 @@ import {
 } from "@/lib/selectors";
 import { BadgeEstado } from "./badge-estado";
 import { BotonPagarPlan } from "./boton-pagar-plan";
-import { CreditCardIcon, ClockIcon } from "lucide-react";
-import type { Cliente, Plan, Pago, BonoCliente } from "@/lib/types";
+import { CreditCardIcon, ClockIcon, CalendarClockIcon } from "lucide-react";
+import type { Cliente, Plan, Pago, BonoCliente, Clase } from "@/lib/types";
 
 interface Props {
   cliente: Cliente;
   planes: Plan[];
   pagos: Pago[];
   bonosCliente: BonoCliente[];
+  clases: Clase[];
 }
 
-export function MiPlan({ cliente, planes, pagos, bonosCliente }: Props) {
+function etiquetaDia(dia: string): string {
+  return dia.charAt(0).toUpperCase() + dia.slice(1);
+}
+
+export function MiPlan({ cliente, planes, pagos, bonosCliente, clases }: Props) {
   const plan = planPorId(planes, cliente.planId);
   const pago = pagoDeCliente(pagos, cliente.id);
   const bono = bonoDeCliente(bonosCliente, cliente.id);
   const restantes = bono ? creditosRestantes(bono) : 0;
   const total = bono?.creditosTotales ?? 0;
   const porcentaje = total > 0 ? (restantes / total) * 100 : 0;
+  const claseHabitual = cliente.claseHabitualId ? clases.find((c) => c.id === cliente.claseHabitualId) : undefined;
 
   return (
     <Card>
@@ -43,6 +49,21 @@ export function MiPlan({ cliente, planes, pagos, bonosCliente }: Props) {
             </p>
           </div>
         </div>
+
+        {claseHabitual && (
+          <div className="flex items-center gap-2 rounded-lg bg-muted/30 px-3 py-2.5">
+            <CalendarClockIcon className="size-4 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="text-xs text-muted-foreground">Tu horario fijo</p>
+              <p className="text-sm font-medium">
+                {etiquetaDia(claseHabitual.dia)} {claseHabitual.horaInicio}–{claseHabitual.horaFin}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Si esta semana no puedes venir, cancela igualmente: tu horario fijo no cambia.
+              </p>
+            </div>
+          </div>
+        )}
 
         {bono && (
           <div className="flex flex-col gap-2">

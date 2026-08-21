@@ -139,7 +139,7 @@ export default async function ClientePage() {
         </Card>
       )}
 
-      <MiPlan cliente={cliente} planes={planes} pagos={pagos} bonosCliente={bonosCliente} />
+      <MiPlan cliente={cliente} planes={planes} pagos={pagos} bonosCliente={bonosCliente} clases={clases} />
       <div>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
           Reserva tu clase
